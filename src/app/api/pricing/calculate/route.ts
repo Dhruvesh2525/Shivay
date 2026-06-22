@@ -53,7 +53,7 @@ export async function POST(request: Request) {
         return slotTime >= start && slotTime < end;
       });
 
-      const price = rule ? Number(rule.price_per_30min) : 0;
+      const price = rule ? Number(rule.price_per_30min) : 300;
       basePrice += price;
 
       return {
@@ -62,25 +62,36 @@ export async function POST(request: Request) {
       };
     });
 
-    // 5. Check for duration discounts (e.g. 2 hours/4 slots = 5% off)
-    let discountPercent = 0;
+    // 5. Apply Single-Slot Pickleball Surcharge (400 if only 1 slot / 30 mins)
     const totalSlots = slots.length;
+    let finalPrice = basePrice;
+    let discountPercent = 0;
+    let discountAmount = 0;
 
-    const { data: discounts } = await supabase
-      .from('duration_discounts')
-      .select('discount_percentage')
-      .eq('sport', sport)
-      .eq('is_active', true)
-      .lte('min_slots', totalSlots)
-      .order('min_slots', { ascending: false })
-      .limit(1);
+    if (sport === 'pickleball' && totalSlots === 1) {
+      // Override: 30 minutes Pickleball booking costs 400 instead of standard rate (e.g. 300)
+      basePrice = 400;
+      finalPrice = 400;
+      // Adjust slot price in breakdown
+      if (slotBreakdown[0]) slotBreakdown[0].price = 400;
+    } else {
+      // 6. Check for duration discounts (e.g. 2 hours/4 slots = 5% off)
+      const { data: discounts } = await supabase
+        .from('duration_discounts')
+        .select('discount_percentage')
+        .eq('sport', sport)
+        .eq('is_active', true)
+        .lte('min_slots', totalSlots)
+        .order('min_slots', { ascending: false })
+        .limit(1);
 
-    if (discounts && discounts.length > 0) {
-      discountPercent = Number(discounts[0].discount_percentage);
+      if (discounts && discounts.length > 0) {
+        discountPercent = Number(discounts[0].discount_percentage);
+      }
+
+      discountAmount = (basePrice * discountPercent) / 100;
+      finalPrice = basePrice - discountAmount;
     }
-
-    const discountAmount = (basePrice * discountPercent) / 100;
-    const finalPrice = basePrice - discountAmount;
 
     return NextResponse.json({
       sport,

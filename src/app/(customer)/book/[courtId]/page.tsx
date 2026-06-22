@@ -161,18 +161,26 @@ export default function BookCourtPage({ params }: Props) {
 
     const totalSlots = selectedSlots.length;
     let discountPercent = 0;
-    
-    // Find the highest qualifying discount rules
-    const sortedDiscounts = [...durationDiscounts]
-      .filter((d) => d.min_slots <= totalSlots)
-      .sort((a, b) => b.min_slots - a.min_slots);
+    let discountAmount = 0;
+    let finalPrice = basePrice;
 
-    if (sortedDiscounts.length > 0) {
-      discountPercent = Number(sortedDiscounts[0].discount_percentage);
+    if (court?.sport === 'pickleball' && totalSlots === 1) {
+      // Overridden price block for single 30 mins pickleball slots
+      basePrice = 400;
+      finalPrice = 400;
+    } else {
+      // Find the highest qualifying discount rules
+      const sortedDiscounts = [...durationDiscounts]
+        .filter((d) => d.min_slots <= totalSlots)
+        .sort((a, b) => b.min_slots - a.min_slots);
+
+      if (sortedDiscounts.length > 0) {
+        discountPercent = Number(sortedDiscounts[0].discount_percentage);
+      }
+
+      discountAmount = (basePrice * discountPercent) / 100;
+      finalPrice = basePrice - discountAmount;
     }
-
-    const discountAmount = (basePrice * discountPercent) / 100;
-    const finalPrice = basePrice - discountAmount;
 
     setCheckoutPrice({
       basePrice,
@@ -180,7 +188,7 @@ export default function BookCourtPage({ params }: Props) {
       discountAmount,
       finalPrice
     });
-  }, [selectedSlots, pricingRules, durationDiscounts]);
+  }, [selectedSlots, pricingRules, durationDiscounts, court]);
 
   const handleToggleSlot = (time: string) => {
     setSelectedSlots((prev) =>
