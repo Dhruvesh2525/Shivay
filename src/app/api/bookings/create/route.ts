@@ -21,6 +21,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
     }
 
+    // Ensure profile row exists (autocreate if missing, e.g. for manually created Supabase users)
+    const { data: profile } = await adminSupabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (!profile) {
+      const { error: insertProfileError } = await adminSupabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          email: user.email || '',
+          phone: user.user_metadata?.phone || '0000000000',
+          birth_date: user.user_metadata?.birth_date || '2000-01-01',
+          role: 'customer',
+          is_active: true
+        });
+
+      if (insertProfileError) {
+        return NextResponse.json({ error: `User profile could not be initialized: ${insertProfileError.message}` }, { status: 500 });
+      }
+    }
+
     // 1. Fetch court details and enforce sport rules
     const { data: court } = await supabase
       .from('courts')
