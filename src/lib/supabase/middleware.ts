@@ -9,9 +9,12 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-project.supabase.co';
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummykey';
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
@@ -32,7 +35,13 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data?.user || null;
+  } catch (err) {
+    console.error('Middleware Auth Check Failed:', err);
+  }
 
   // Route guarding checks
   const url = new URL(request.url);
@@ -49,38 +58,42 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user) {
-    // 1. Single session check: retrieve current active session ID from user profile
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role, active_session_id, is_active')
-      .eq('id', user.id)
-      .single();
+    try {
+      // 1. Single session check: retrieve current active session ID from user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, active_session_id, is_active')
+        .eq('id', user.id)
+        .single();
 
-    // Check if user account is deactivated
-    if (profile && !profile.is_active) {
-      await supabase.auth.signOut();
-      return NextResponse.redirect(new URL('/login?error=deactivated', request.url));
-    }
+      // Check if user account is deactivated
+      if (profile && !profile.is_active) {
+        await supabase.auth.signOut();
+        return NextResponse.redirect(new URL('/login?error=deactivated', request.url));
+      }
 
-    // Force sign-out if the current session ID doesn't match the database value
-    const currentSessionToken = request.cookies.get('sb-access-token')?.value;
-    if (profile?.active_session_id && currentSessionToken && profile.active_session_id !== currentSessionToken) {
-      await supabase.auth.signOut();
-      const redirectResponse = NextResponse.redirect(new URL('/login?error=session_terminated', request.url));
-      redirectResponse.cookies.delete('sb-access-token');
-      redirectResponse.cookies.delete('sb-refresh-token');
-      return redirectResponse;
-    }
+      // Force sign-out if the current session ID doesn't match the database value
+      const currentSessionToken = request.cookies.get('sb-access-token')?.value;
+      if (profile?.active_session_id && currentSessionToken && profile.active_session_id !== currentSessionToken) {
+        await supabase.auth.signOut();
+        const redirectResponse = NextResponse.redirect(new URL('/login?error=session_terminated', request.url));
+        redirectResponse.cookies.delete('sb-access-token');
+        redirectResponse.cookies.delete('sb-refresh-token');
+        return redirectResponse;
+      }
 
-    // 2. Role validation guards
-    if (isAdminPath && profile?.role !== 'super_admin') {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
-    if (isManagerPath && profile?.role !== 'manager' && profile?.role !== 'super_admin') {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
-    if (isOrganizerPath && profile?.role !== 'organizer' && profile?.role !== 'super_admin') {
-      return NextResponse.redirect(new URL('/', request.url));
+      // 2. Role validation guards
+      if (isAdminPath && profile?.role !== 'super_admin') {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+      if (isManagerPath && profile?.role !== 'manager' && profile?.role !== 'super_admin') {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+      if (isOrganizerPath && profile?.role !== 'organizer' && profile?.role !== 'super_admin') {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+    } catch (err) {
+      console.error('Middleware database query failed:', err);
     }
   }
 
