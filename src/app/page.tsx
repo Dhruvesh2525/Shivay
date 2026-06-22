@@ -39,7 +39,7 @@ async function getHomeData() {
     return {
       courts: courtsRes.data || [],
       announcements: announcementsRes.data || [],
-      reviews: reviewsRes.data || [],
+      reviews: (reviewsRes.data || []) as any[],
     };
   } catch {
     return { courts: [], announcements: [], reviews: [] };

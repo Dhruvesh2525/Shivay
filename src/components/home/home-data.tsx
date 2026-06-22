@@ -24,7 +24,7 @@ interface Review {
   comment: string;
   overall_rating: number;
   created_at: string;
-  profiles: { full_name: string } | null;
+  profiles: { full_name: string }[] | { full_name: string } | null;
 }
 
 interface Props {
@@ -178,7 +178,7 @@ export default function HomeData({ courts, announcements, reviews }: Props) {
                   <p className="text-xs text-[#A7C4B8] italic leading-relaxed">&ldquo;{rev.comment}&rdquo;</p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground truncate">{rev.profiles?.full_name || 'Anonymous Player'}</span>
+                  <span className="text-xs font-bold text-foreground truncate">{(Array.isArray(rev.profiles) ? rev.profiles[0]?.full_name : rev.profiles?.full_name) || 'Anonymous Player'}</span>
                   <span className="text-[9px] text-muted-foreground font-mono">
                     {new Date(rev.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
                   </span>
