@@ -47,14 +47,14 @@ export async function POST(request: Request) {
     }
 
     // 1. Fetch court details and enforce sport rules
-    const { data: court } = await supabase
+    const { data: court } = await adminSupabase
       .from('courts')
       .select('sport, name')
       .eq('id', courtId)
       .single();
 
     if (!court) {
-      return NextResponse.json({ error: 'Court not found.' }, { status: 404 });
+      return NextResponse.json({ error: `Court not found (id: ${courtId}).` }, { status: 404 });
     }
 
     const totalSlots = slots.length;

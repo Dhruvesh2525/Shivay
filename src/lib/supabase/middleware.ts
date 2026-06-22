@@ -83,7 +83,7 @@ export async function updateSession(request: NextRequest) {
       }
 
       // 2. Role validation guards
-      if (isAdminPath && profile?.role !== 'super_admin') {
+      if (isAdminPath && !['super_admin', 'manager', 'organizer'].includes(profile?.role || '')) {
         return NextResponse.redirect(new URL('/', request.url));
       }
       if (isManagerPath && profile?.role !== 'manager' && profile?.role !== 'super_admin') {

@@ -120,7 +120,7 @@ export default function BookCourtPage({ params }: Props) {
         for (const m of timeBlocks) {
           const slotTime = `${String(h).padStart(2, '0')}:${m}:00`;
           const rule = pricing?.find(r => slotTime >= r.start_time && slotTime < r.end_time);
-          const price = rule ? Number(rule.price_per_30min) : 300;
+          let price = rule ? Number(rule.price_per_30min) : 300;
 
           generatedSlots.push({
             time: slotTime,
