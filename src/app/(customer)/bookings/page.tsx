@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import MobileNav from '@/components/layout/mobile-nav';
-import { Calendar, ChevronRight, FileText } from 'lucide-react';
+import { Calendar, ChevronRight, FileText, ArrowLeft } from 'lucide-react';
 
 interface Booking {
   id: string;
@@ -70,6 +70,12 @@ export default function BookingsListPage() {
       <Header />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 pb-24 md:pb-8">
+        <button 
+          onClick={() => router.push('/')}
+          className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline mb-3 uppercase tracking-wider"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
+        </button>
         <div className="mb-6">
           <h1 className="text-2xl font-black text-primary uppercase">My Bookings</h1>
           <p className="text-[#A7C4B8] text-xs">Track your scheduled slots and download receipts.</p>

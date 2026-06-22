@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import MobileNav from '@/components/layout/mobile-nav';
-import { Calendar, Zap, CreditCard, ShieldCheck } from 'lucide-react';
+import { Calendar, Zap, CreditCard, ShieldCheck, ArrowLeft } from 'lucide-react';
 
 interface Props {
   params: Promise<{ courtId: string }>;
@@ -33,6 +33,10 @@ export default function BookCourtPage({ params }: Props) {
   const [checkoutPrice, setCheckoutPrice] = useState({ basePrice: 0, discountPercent: 0, discountAmount: 0, finalPrice: 0 });
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
+  // Local copy of fetched pricing rules and discounts for immediate price calculation
+  const [pricingRules, setPricingRules] = useState<any[]>([]);
+  const [durationDiscounts, setDurationDiscounts] = useState<any[]>([]);
+
   useEffect(() => {
     // Generate dates lists for the next 14 days
     const list = [];
@@ -55,56 +59,67 @@ export default function BookCourtPage({ params }: Props) {
       setLoading(true);
       // Fetch Court details
       const { data: courtDetail } = await supabase
-        .from('courts')
-        .select('*')
-        .eq('id', courtId)
-        .single();
+          .from('courts')
+          .select('*')
+          .eq('id', courtId)
+          .single();
       
       setCourt(courtDetail);
 
       // Fetch operating hours
       const { data: opHours } = await supabase
-        .from('facility_settings')
-        .select('value')
-        .eq('key', 'operating_hours')
-        .single();
+          .from('facility_settings')
+          .select('value')
+          .eq('key', 'operating_hours')
+          .single();
       
       const startHour = opHours?.value ? Number(opHours.value.opens_at.split(':')[0]) : 6;
       const endHour = opHours?.value ? Number(opHours.value.closes_at.split(':')[0]) : 23;
 
       // Fetch bookings for this day
       const { data: bookingsData } = await supabase
-        .from('booking_slots')
-        .select('slot_time')
-        .eq('court_id', courtId)
-        .eq('slot_date', selectedDate);
+          .from('booking_slots')
+          .select('slot_time')
+          .eq('court_id', courtId)
+          .eq('slot_date', selectedDate);
       
       const bookedSet = new Set(bookingsData?.map(b => b.slot_time) || []);
 
       // Fetch locks for this day
       const { data: locksData } = await supabase
-        .from('slot_locks')
-        .select('slot_time')
-        .eq('court_id', courtId)
-        .eq('slot_date', selectedDate)
-        .gt('locked_until', new Date().toISOString());
+          .from('slot_locks')
+          .select('slot_time')
+          .eq('court_id', courtId)
+          .eq('slot_date', selectedDate)
+          .gt('locked_until', new Date().toISOString());
       
       const lockedSet = new Set(locksData?.map(l => l.slot_time) || []);
 
       // Generate 30-min slots based on sport price rules
       const resolvedDayType = new Date(selectedDate).getDay() === 0 || new Date(selectedDate).getDay() === 6 ? 'weekend' : 'weekday';
-      const { data: pricingRules } = await supabase
-        .from('pricing_rules')
-        .select('*')
-        .eq('sport', courtDetail.sport)
-        .eq('day_type', resolvedDayType);
+      const { data: pricing } = await supabase
+          .from('pricing_rules')
+          .select('*')
+          .eq('sport', courtDetail.sport)
+          .eq('day_type', resolvedDayType);
+
+      setPricingRules(pricing || []);
+
+      // Fetch active duration discounts for local calculation
+      const { data: discounts } = await supabase
+          .from('duration_discounts')
+          .select('*')
+          .eq('sport', courtDetail.sport)
+          .eq('is_active', true);
+
+      setDurationDiscounts(discounts || []);
 
       const generatedSlots = [];
       for (let h = startHour; h < endHour; h++) {
         const timeBlocks = ['00', '30'];
         for (const m of timeBlocks) {
           const slotTime = `${String(h).padStart(2, '0')}:${m}:00`;
-          const rule = pricingRules?.find(r => slotTime >= r.start_time && slotTime < r.end_time);
+          const rule = pricing?.find(r => slotTime >= r.start_time && slotTime < r.end_time);
           const price = rule ? Number(rule.price_per_30min) : 300;
 
           generatedSlots.push({
@@ -119,6 +134,7 @@ export default function BookCourtPage({ params }: Props) {
 
       setSlots(generatedSlots);
       setSelectedSlots([]);
+      setCheckoutPrice({ basePrice: 0, discountPercent: 0, discountAmount: 0, finalPrice: 0 });
     } catch (err) {
       console.error('Error fetching slots details:', err);
     } finally {
@@ -130,29 +146,41 @@ export default function BookCourtPage({ params }: Props) {
     fetchCourtAndSlots();
   }, [courtId, selectedDate]);
 
-  // Recalculate price in real time when slots selection changes
+  // Recalculate price INSTANTLY client-side when slots selection changes
   useEffect(() => {
-    async function calculateTotal() {
-      if (selectedSlots.length === 0) {
-        setCheckoutPrice({ basePrice: 0, discountPercent: 0, discountAmount: 0, finalPrice: 0 });
-        return;
-      }
-      try {
-        const res = await fetch('/api/pricing/calculate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ courtId, date: selectedDate, slots: selectedSlots })
-        });
-        if (res.ok) {
-          const summary = await res.json();
-          setCheckoutPrice(summary);
-        }
-      } catch (err) {
-        console.error('Failed to calculate pricing total:', err);
-      }
+    if (selectedSlots.length === 0) {
+      setCheckoutPrice({ basePrice: 0, discountPercent: 0, discountAmount: 0, finalPrice: 0 });
+      return;
     }
-    calculateTotal();
-  }, [selectedSlots]);
+
+    let basePrice = 0;
+    selectedSlots.forEach((slotTime) => {
+      const rule = pricingRules.find((r) => slotTime >= r.start_time && slotTime < r.end_time);
+      basePrice += rule ? Number(rule.price_per_30min) : 300;
+    });
+
+    const totalSlots = selectedSlots.length;
+    let discountPercent = 0;
+    
+    // Find the highest qualifying discount rules
+    const sortedDiscounts = [...durationDiscounts]
+      .filter((d) => d.min_slots <= totalSlots)
+      .sort((a, b) => b.min_slots - a.min_slots);
+
+    if (sortedDiscounts.length > 0) {
+      discountPercent = Number(sortedDiscounts[0].discount_percentage);
+    }
+
+    const discountAmount = (basePrice * discountPercent) / 100;
+    const finalPrice = basePrice - discountAmount;
+
+    setCheckoutPrice({
+      basePrice,
+      discountPercent,
+      discountAmount,
+      finalPrice
+    });
+  }, [selectedSlots, pricingRules, durationDiscounts]);
 
   const handleToggleSlot = (time: string) => {
     setSelectedSlots((prev) =>
@@ -233,11 +261,19 @@ export default function BookCourtPage({ params }: Props) {
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 pb-32">
         {court && (
           <div className="mb-6">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-              {court.sport}
-            </span>
-            <h1 className="text-2xl font-black text-foreground mt-1 uppercase">{court.name}</h1>
-            <p className="text-xs text-[#A7C4B8]">{court.description}</p>
+            <button 
+              onClick={() => router.push('/book')}
+              className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline mb-3 uppercase tracking-wider"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to Catalog
+            </button>
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                {court.sport}
+              </span>
+              <h1 className="text-2xl font-black text-foreground mt-1 uppercase">{court.name}</h1>
+              <p className="text-xs text-[#A7C4B8]">{court.description}</p>
+            </div>
           </div>
         )}
 

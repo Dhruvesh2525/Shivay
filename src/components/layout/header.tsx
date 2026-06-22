@@ -34,7 +34,7 @@ export default function Header() {
                 <User className="w-4 h-4" />
               )}
             </Link>
-            {profile?.role === 'super_admin' && (
+            {profile && ['super_admin', 'manager', 'organizer'].includes(profile.role) && (
               <Link href="/admin" className="text-[10px] bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 rounded font-mono uppercase">
                 Admin
               </Link>

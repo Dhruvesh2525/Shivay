@@ -28,7 +28,9 @@ export default function AdminLayout({
       <aside className="hidden md:flex flex-col w-64 bg-[#111A16] border-r border-[#1E3A2B] p-6 text-sm shrink-0">
         <div className="mb-8">
           <Link href="/" className="text-2xl font-black text-primary tracking-wider">SHIVAY</Link>
-          <span className="text-[10px] text-muted-foreground uppercase font-mono block tracking-widest mt-0.5">Super Admin Layout</span>
+          <span className="text-[10px] text-muted-foreground uppercase font-mono block tracking-widest mt-0.5">
+            {profile?.role === 'super_admin' ? 'Super Admin Layout' : profile?.role === 'manager' ? 'Manager Layout' : 'Organizer Layout'}
+          </span>
         </div>
 
         <nav className="flex-1 space-y-2">
