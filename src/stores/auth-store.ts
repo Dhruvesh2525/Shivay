@@ -27,7 +27,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   profile: null,
-  loading: true,
+  loading: true, // true until first auth check completes
   setAuth: (user, profile) => set({ user, profile, loading: false }),
   setLoading: (loading) => set({ loading }),
   clearAuth: () => set({ user: null, profile: null, loading: false }),

@@ -1,110 +1,101 @@
 // src/hooks/use-auth.ts
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore, type Profile } from '@/stores/auth-store';
-
-// Module-level flag to prevent multiple simultaneous auth checks
-let authInitialized = false;
-let authSubscription: { unsubscribe: () => void } | null = null;
 
 export function useAuth() {
   const supabase = createClient();
   const { user, profile, loading, setAuth, setLoading, clearAuth } = useAuthStore();
+  // Track if THIS store instance has already been initialized
+  const initialized = useRef(useAuthStore.getState().user !== null || !useAuthStore.getState().loading);
 
   useEffect(() => {
-    // Only run the full initialization once across all hook instances
-    if (authInitialized) return;
-    authInitialized = true;
+    // If auth is already resolved (user known or explicitly logged out), skip re-fetch
+    if (!useAuthStore.getState().loading) return;
 
-    const checkUser = async () => {
-      setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+    let isMounted = true;
 
-        setAuth(session.user, prof as Profile);
-      } else {
-        clearAuth();
+    const init = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!isMounted) return;
+
+        if (session?.user) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (isMounted) setAuth(session.user, prof as Profile);
+        } else {
+          if (isMounted) clearAuth();
+        }
+      } catch {
+        if (isMounted) clearAuth();
       }
     };
 
-    checkUser();
+    init();
 
-    // Set up auth state change listeners (only once)
+    // Auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+
       if (session?.user) {
         const { data: prof } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
-        
-        // Single Session Enforcement Check (Client Side)
+
+        if (!isMounted) return;
+
+        // Single Session Enforcement Check
         const currentToken = session.access_token;
         if (prof?.active_session_id && currentToken && prof.active_session_id !== currentToken) {
           await supabase.auth.signOut();
           clearAuth();
-          authInitialized = false;
-          authSubscription = null;
           window.location.href = '/login?error=session_terminated';
           return;
         }
 
         setAuth(session.user, prof as Profile);
-      } else {
-        // Only clear on explicit sign-out events, not on initial INITIAL_SESSION
-        if (event !== 'INITIAL_SESSION') {
-          clearAuth();
-        }
+      } else if (event === 'SIGNED_OUT') {
+        clearAuth();
       }
     });
 
-    authSubscription = subscription;
-
-    // Cleanup on page unload (not on component unmount to keep state alive)
     return () => {
-      // Do NOT unsubscribe here — we want the listener to persist across page navigations
-      // The subscription is module-level and shared
+      isMounted = false;
+      subscription.unsubscribe();
     };
   }, []);
 
   const loginWithGoogle = async () => {
-    setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-    if (error) {
-      setLoading(false);
-      throw error;
-    }
+    if (error) throw error;
   };
 
   const loginWithEmail = async (email: string) => {
-    setLoading(true);
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-    setLoading(false);
     if (error) throw error;
   };
 
   const logout = async () => {
-    setLoading(true);
     await supabase.auth.signOut();
     clearAuth();
-    authInitialized = false;
-    authSubscription = null;
     window.location.href = '/login';
   };
 
