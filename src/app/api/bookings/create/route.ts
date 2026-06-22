@@ -109,7 +109,7 @@ export async function POST(request: Request) {
       .insert(lockRows);
 
     if (lockError) {
-      return NextResponse.json({ error: 'Failed to lock slots. Someone may have just reserved them.' }, { status: 409 });
+      return NextResponse.json({ error: `Failed to lock slots: ${lockError.message || JSON.stringify(lockError)}. Someone may have just reserved them.` }, { status: 409 });
     }
 
     // 5. Initialize Razorpay Order
