@@ -5,16 +5,42 @@ import FacilityStatus from '@/components/home/facility-status';
 import HomeData from '@/components/home/home-data';
 import Footer from '@/components/layout/footer';
 import MobileNav from '@/components/layout/mobile-nav';
+import { createAdminClient } from '@/lib/supabase/admin';
 
-// Fetch all home data server-side (much faster than 4+ client fetches)
+// Query Supabase DIRECTLY — no self-fetch that breaks on Vercel (localhost bug)
 async function getHomeData() {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const res = await fetch(`${baseUrl}/api/home`, {
-      next: { revalidate: 60 }, // cache for 60s
-    });
-    if (!res.ok) throw new Error('Failed to fetch home data');
-    return res.json();
+    const supabase = createAdminClient();
+
+    const [courtsRes, announcementsRes, reviewsRes] = await Promise.all([
+      supabase
+        .from('courts')
+        .select('id, name, sport')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true }),
+
+      supabase
+        .from('announcements')
+        .select('id, title, content, priority, created_at')
+        .eq('is_active', true)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(5),
+
+      supabase
+        .from('reviews')
+        .select('id, comment, overall_rating, created_at, profiles(full_name)')
+        .eq('is_visible', true)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(3),
+    ]);
+
+    return {
+      courts: courtsRes.data || [],
+      announcements: announcementsRes.data || [],
+      reviews: reviewsRes.data || [],
+    };
   } catch {
     return { courts: [], announcements: [], reviews: [] };
   }

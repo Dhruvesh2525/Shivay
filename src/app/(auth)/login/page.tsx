@@ -1,14 +1,19 @@
 // src/app/(auth)/login/page.tsx
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/supabase/client';
 
-function LoginForm() {
+// Read search params via window.location to avoid Suspense boundary flash
+function getSearchParam(key: string): string {
+  if (typeof window === 'undefined') return '';
+  return new URLSearchParams(window.location.search).get(key) || '';
+}
+
+export default function Login() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = createClient();
   const { user, loginWithGoogle, loading: authLoading } = useAuth();
 
@@ -17,7 +22,7 @@ function LoginForm() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [birthDate, setBirthDate] = useState('');
-  
+
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [isPasswordMode, setIsPasswordMode] = useState(true);
   const [sent, setSent] = useState(false);
@@ -25,8 +30,9 @@ function LoginForm() {
   const [statusMessage, setStatusMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Read error param client-side only — no Suspense needed
   useEffect(() => {
-    const err = searchParams.get('error');
+    const err = getSearchParam('error');
     if (err === 'session_terminated') {
       setError('You have been logged out because this account was logged into on another device.');
     } else if (err === 'deactivated') {
@@ -34,11 +40,14 @@ function LoginForm() {
     } else if (err === 'auth_failed') {
       setError('Authentication failed. Please try again.');
     }
+  }, []);
 
-    if (user) {
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && user) {
       router.push('/');
     }
-  }, [searchParams, user, router]);
+  }, [authLoading, user, router]);
 
   const handleGoogleLogin = async () => {
     try {
@@ -57,60 +66,37 @@ function LoginForm() {
 
     try {
       if (isRegisterMode) {
-        // Sign up user
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            data: {
-              full_name: fullName,
-            }
-          }
+          options: { data: { full_name: fullName } }
         });
         if (signUpError) throw signUpError;
         if (!signUpData.user) throw new Error('Sign up failed.');
 
-        // Insert database profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: signUpData.user.id,
-            full_name: fullName,
-            email,
-            phone,
-            birth_date: birthDate,
-            role: 'customer',
-            is_active: true
-          });
-
+        const { error: profileError } = await supabase.from('profiles').upsert({
+          id: signUpData.user.id,
+          full_name: fullName,
+          email,
+          phone,
+          birth_date: birthDate,
+          role: 'customer',
+          is_active: true
+        });
         if (profileError) throw profileError;
 
-        setStatusMessage('Account created successfully! Logging you in...');
-        setTimeout(() => {
-          router.push('/');
-          window.location.reload();
-        }, 800);
+        setStatusMessage('Account created! Logging you in...');
+        setTimeout(() => { router.push('/'); window.location.reload(); }, 800);
       } else {
-        // Login Mode
         if (isPasswordMode) {
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
           if (signInError) throw signInError;
-          
           setStatusMessage('Success! Logging you in...');
-          setTimeout(() => {
-            router.push('/');
-            window.location.reload();
-          }, 800);
+          setTimeout(() => { router.push('/'); window.location.reload(); }, 800);
         } else {
-          // Magic link OTP
           const { error: otpError } = await supabase.auth.signInWithOtp({
             email,
-            options: {
-              emailRedirectTo: `${window.location.origin}/auth/callback`,
-            },
+            options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
           });
           if (otpError) throw otpError;
           setSent(true);
@@ -125,184 +111,117 @@ function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl">
-      <div className="flex flex-col items-center mb-6">
-        <h1 className="text-3xl font-extrabold tracking-wider text-primary">SHIVAY</h1>
-        <p className="text-xs tracking-widest text-[#6B8F7E] uppercase mt-1">The Cricketing Hub</p>
-      </div>
-
-      <h2 className="text-xl font-bold text-center mb-2">
-        {isRegisterMode ? 'Create Account' : 'Welcome Back'}
-      </h2>
-      <p className="text-muted-foreground text-center text-sm mb-6">
-        {isRegisterMode ? 'Join Shivay to book courts and join tournaments' : 'Sign in to access your dashboard'}
-      </p>
-
-      {error && (
-        <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-          {error}
+    <main className="flex-1 flex flex-col justify-center items-center p-4 bg-[#0A0F0D] min-h-screen">
+      <div className="w-full max-w-md p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl">
+        <div className="flex flex-col items-center mb-6">
+          <h1 className="text-3xl font-extrabold tracking-wider text-primary">SHIVAY</h1>
+          <p className="text-xs tracking-widest text-[#6B8F7E] uppercase mt-1">The Cricketing Hub</p>
         </div>
-      )}
 
-      {statusMessage && (
-        <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
-          {statusMessage}
-        </div>
-      )}
+        <h2 className="text-xl font-bold text-center mb-2">
+          {isRegisterMode ? 'Create Account' : 'Welcome Back'}
+        </h2>
+        <p className="text-muted-foreground text-center text-sm mb-6">
+          {isRegisterMode ? 'Join Shivay to book courts and join tournaments' : 'Sign in to access your dashboard'}
+        </p>
 
-      <button
-        onClick={handleGoogleLogin}
-        disabled={loading || authLoading}
-        className="w-full flex items-center justify-center gap-3 py-3 rounded-lg bg-white text-black font-semibold hover:bg-gray-100 transition-colors transform active:scale-95 text-sm mb-5"
-      >
-        <svg className="w-5 h-5" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-        </svg>
-        Continue with Google
-      </button>
-
-      <div className="flex items-center my-4">
-        <hr className="flex-grow border-[#1E3A2B]" />
-        <span className="px-3 text-xs text-muted-foreground uppercase tracking-widest">or</span>
-        <hr className="flex-grow border-[#1E3A2B]" />
-      </div>
-
-      {!isRegisterMode && (
-        <div className="flex border-b border-[#1E3A2B] mb-4">
-          <button
-            type="button"
-            onClick={() => { setIsPasswordMode(true); setError(''); setStatusMessage(''); }}
-            className={`flex-1 pb-2 text-sm font-semibold transition-colors ${
-              isPasswordMode ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Password Login
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIsPasswordMode(false); setError(''); setStatusMessage(''); }}
-            className={`flex-1 pb-2 text-sm font-semibold transition-colors ${
-              !isPasswordMode ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Magic Link OTP
-          </button>
-        </div>
-      )}
-
-      <form onSubmit={handleAuthSubmit} className="space-y-4">
-        {isRegisterMode && (
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Full Name</label>
-            <input
-              type="text"
-              required
-              placeholder="John Doe"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm"
-            />
-          </div>
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>
         )}
-
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Email Address</label>
-          <input
-            type="email"
-            required
-            placeholder="name@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={sent || loading}
-            className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm"
-          />
-        </div>
-
-        {(isRegisterMode || isPasswordMode) && (
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Password</label>
-            <input
-              type="password"
-              required
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-              className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm"
-            />
-          </div>
-        )}
-
-        {isRegisterMode && (
-          <>
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Phone Number</label>
-              <input
-                type="tel"
-                required
-                pattern="[0-9]{10}"
-                placeholder="9876543210"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Birth Date</label>
-              <input
-                type="date"
-                required
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm"
-              />
-            </div>
-          </>
+        {statusMessage && (
+          <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">{statusMessage}</div>
         )}
 
         <button
-          type="submit"
+          onClick={handleGoogleLogin}
           disabled={loading || authLoading}
-          className="w-full py-3 rounded-lg bg-primary hover:bg-[#6EE7B7] text-primary-foreground font-bold tracking-wide transition-all duration-200 transform active:scale-95 text-sm"
+          className="w-full flex items-center justify-center gap-3 py-3 rounded-lg bg-white text-black font-semibold hover:bg-gray-100 transition-colors transform active:scale-95 text-sm mb-5"
         >
-          {loading 
-            ? 'Authenticating...' 
-            : isRegisterMode 
-              ? 'Complete Sign Up' 
-              : isPasswordMode 
-                ? 'Sign In with Password' 
-                : sent 
-                  ? 'Magic Link Sent' 
-                  : 'Send Magic Link'}
+          <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          Continue with Google
         </button>
-      </form>
 
-      <div className="mt-6 text-center text-xs">
-        <button
-          type="button"
-          onClick={() => {
-            setIsRegisterMode(!isRegisterMode);
-            setError('');
-            setStatusMessage('');
-          }}
-          className="text-primary font-semibold hover:underline"
-        >
-          {isRegisterMode ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-        </button>
+        <div className="flex items-center my-4">
+          <hr className="flex-grow border-[#1E3A2B]" />
+          <span className="px-3 text-xs text-muted-foreground uppercase tracking-widest">or</span>
+          <hr className="flex-grow border-[#1E3A2B]" />
+        </div>
+
+        {!isRegisterMode && (
+          <div className="flex border-b border-[#1E3A2B] mb-4">
+            <button
+              type="button"
+              onClick={() => { setIsPasswordMode(true); setError(''); setStatusMessage(''); }}
+              className={`flex-1 pb-2 text-sm font-semibold transition-colors ${isPasswordMode ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Password Login
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsPasswordMode(false); setError(''); setStatusMessage(''); }}
+              className={`flex-1 pb-2 text-sm font-semibold transition-colors ${!isPasswordMode ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Magic Link OTP
+            </button>
+          </div>
+        )}
+
+        <form onSubmit={handleAuthSubmit} className="space-y-4">
+          {isRegisterMode && (
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Full Name</label>
+              <input type="text" required placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)}
+                className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Email Address</label>
+            <input type="email" required placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={sent || loading}
+              className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+          </div>
+
+          {(isRegisterMode || isPasswordMode) && (
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Password</label>
+              <input type="password" required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading}
+                className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+            </div>
+          )}
+
+          {isRegisterMode && (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Phone Number</label>
+                <input type="tel" required pattern="[0-9]{10}" placeholder="9876543210" value={phone} onChange={(e) => setPhone(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Birth Date</label>
+                <input type="date" required value={birthDate} onChange={(e) => setBirthDate(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+              </div>
+            </>
+          )}
+
+          <button type="submit" disabled={loading || authLoading}
+            className="w-full py-3 rounded-lg bg-primary hover:bg-[#6EE7B7] text-primary-foreground font-bold tracking-wide transition-all duration-200 transform active:scale-95 text-sm">
+            {loading ? 'Authenticating...' : isRegisterMode ? 'Complete Sign Up' : isPasswordMode ? 'Sign In with Password' : sent ? 'Magic Link Sent' : 'Send Magic Link'}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center text-xs">
+          <button type="button" onClick={() => { setIsRegisterMode(!isRegisterMode); setError(''); setStatusMessage(''); }}
+            className="text-primary font-semibold hover:underline">
+            {isRegisterMode ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+          </button>
+        </div>
       </div>
-    </div>
-  );
-}
-
-export default function Login() {
-  return (
-    <main className="flex-1 flex flex-col justify-center items-center p-4 bg-[#0A0F0D]">
-      <Suspense fallback={<div className="text-primary">Loading parameters...</div>}>
-        <LoginForm />
-      </Suspense>
     </main>
   );
 }

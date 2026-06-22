@@ -8,14 +8,6 @@ import { User, LayoutDashboard } from 'lucide-react';
 export default function Header() {
   const { user, profile, loading } = useAuth();
 
-  // Determine dashboard URL based on role
-  const getDashboardHref = () => {
-    if (!profile) return '/admin';
-    if (profile.role === 'organizer') return '/admin';
-    if (profile.role === 'manager') return '/admin';
-    return '/admin';
-  };
-
   const isStaff = profile && ['super_admin', 'manager', 'organizer'].includes(profile.role);
 
   return (
@@ -26,23 +18,22 @@ export default function Header() {
       </Link>
 
       <div className="flex items-center gap-2">
-        {/* Show skeleton during auth loading */}
-        {loading ? (
-          <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
-        ) : user ? (
+        {/* 
+          IMPORTANT: Never show a loading skeleton here.
+          Default to Login button on SSR — client hydration will swap to user state.
+          This keeps the header useful and visible on first paint.
+        */}
+        {!loading && user ? (
           <>
-            {/* Dashboard button — prominent for staff */}
             {isStaff && (
               <Link
-                href={getDashboardHref()}
+                href="/admin"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-[#6EE7B7] transition-colors"
               >
                 <LayoutDashboard className="w-3.5 h-3.5" />
                 Dashboard
               </Link>
             )}
-
-            {/* Profile avatar */}
             <Link
               href="/profile"
               className="flex items-center justify-center w-8 h-8 rounded-full bg-[#1A2620] border border-[#1E3A2B] text-primary hover:border-primary transition-colors"
@@ -55,6 +46,8 @@ export default function Header() {
             </Link>
           </>
         ) : (
+          /* Show Login button always — even during loading. 
+             After hydration it updates to user state if logged in. */
           <Link
             href="/login"
             className="text-xs bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold hover:bg-[#6EE7B7] transition-colors"
