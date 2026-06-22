@@ -18,8 +18,8 @@ export async function GET(request: Request) {
       .eq('id', user.id)
       .single();
 
-    if (adminProfile?.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Forbidden. Super Admin required.' }, { status: 403 });
+    if (!adminProfile || !['super_admin', 'manager', 'organizer'].includes(adminProfile.role)) {
+      return NextResponse.json({ error: 'Forbidden. Admin credentials required.' }, { status: 403 });
     }
 
     // 1. Calculate Revenue Statistics (Confirmed & Completed bookings)
