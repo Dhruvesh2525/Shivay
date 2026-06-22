@@ -66,64 +66,41 @@ export async function POST(request: Request) {
     const endM = endMinutes % 60;
     const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
 
-    // 3. Create the Booking & Slot Entries inside a Database Transaction sequence
-    // A. Insert Booking record
-    const { data: booking, error: bookingError } = await adminSupabase
-      .from('bookings')
-      .insert({
-        user_id: user.id,
-        court_id: courtId,
-        booking_date: date,
-        start_time: startTime,
-        end_time: endTime,
-        total_slots: slots.length,
-        base_price: basePrice,
-        discount_amount: discountAmount,
-        final_price: finalPrice,
-        status: 'confirmed',
-        payment_id: razorpay_payment_id,
-        payment_order_id: razorpay_order_id,
-        payment_signature: razorpay_signature
-      })
-      .select('id, booking_id')
-      .single();
+    // 3. Create the Booking & Slot Entries atomically inside a Database Transaction RPC call
+    const slotTimes = breakdown.map((item: any) => item.slot);
+    const slotPrices = breakdown.map((item: any) => item.price);
 
-    if (bookingError || !booking) {
-      throw new Error(bookingError?.message || 'Failed to register booking in database.');
+    const { data: transactionResult, error: transactionError } = await adminSupabase.rpc(
+      'confirm_booking_transaction',
+      {
+        p_user_id: user.id,
+        p_court_id: courtId,
+        p_booking_date: date,
+        p_start_time: startTime,
+        p_end_time: endTime,
+        p_total_slots: slots.length,
+        p_base_price: basePrice,
+        p_discount_amount: discountAmount,
+        p_final_price: finalPrice,
+        p_payment_id: razorpay_payment_id,
+        p_payment_order_id: razorpay_order_id,
+        p_payment_signature: razorpay_signature,
+        p_slots: slotTimes,
+        p_slot_prices: slotPrices
+      }
+    );
+
+    if (transactionError || !transactionResult || transactionResult.length === 0) {
+      throw new Error(transactionError?.message || 'Double booking collision or query error encountered.');
     }
 
-    // B. Insert Booking Slots
-    const slotRows = breakdown.map((item: any) => ({
-      booking_id: booking.id,
-      court_id: courtId,
-      slot_date: date,
-      slot_time: item.slot,
-      price: item.price
-    }));
-
-    const { error: slotsError } = await adminSupabase
-      .from('booking_slots')
-      .insert(slotRows);
-
-    if (slotsError) {
-      // Revert booking on slot insertion failures
-      await adminSupabase.from('bookings').delete().eq('id', booking.id);
-      throw new Error('Double booking collision detected during slot allocation.');
-    }
-
-    // C. Clean up / Release Slot Locks
-    await adminSupabase
-      .from('slot_locks')
-      .delete()
-      .eq('court_id', courtId)
-      .eq('slot_date', date)
-      .in('slot_time', slots);
+    const { booking_uuid, formatted_booking_id } = transactionResult;
 
     // Return successfully completed booking payload
     return NextResponse.json({
       success: true,
-      bookingId: booking.booking_id,
-      id: booking.id
+      bookingId: formatted_booking_id,
+      id: booking_uuid
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Payment verification handler failed.' }, { status: 500 });

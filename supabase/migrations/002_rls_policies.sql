@@ -27,7 +27,7 @@ ALTER TABLE organizer_applications ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION get_auth_role()
 RETURNS TEXT AS $$
   SELECT role FROM profiles WHERE id = auth.uid();
-$$ LANGUAGE sql SECURITY DEFINER;
+$$ LANGUAGE sql SECURITY INVOKER;
 
 -- =====================================================================
 -- 1. Profiles Policies
@@ -111,7 +111,7 @@ CREATE POLICY "Booking Slots - super admins have full control" ON booking_slots
   FOR ALL USING (get_auth_role() = 'super_admin');
 
 CREATE POLICY "Slot Locks - select locks" ON slot_locks
-  FOR SELECT USING (true);
+  FOR SELECT USING (auth.uid() IS NOT NULL);
 
 CREATE POLICY "Slot Locks - users manage own locks" ON slot_locks
   FOR ALL USING (auth.uid() = locked_by);
