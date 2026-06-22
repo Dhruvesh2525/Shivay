@@ -1,17 +1,19 @@
 // src/app/(customer)/profile/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/supabase/client';
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import MobileNav from '@/components/layout/mobile-nav';
-import { User, Phone, Calendar, Mail, ShieldAlert, LogOut, Shield } from 'lucide-react';
+import { LogOut, Shield } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ProfilePage() {
-  const { user, profile, logout } = useAuth();
+  const router = useRouter();
+  const { user, profile, loading: authLoading, logout } = useAuth();
   const supabase = createClient();
 
   const [fullName, setFullName] = useState('');
@@ -24,8 +26,20 @@ export default function ProfilePage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Only populate form from profile on initial load, not on every re-render
+  const profileLoadedRef = useRef(false);
+
+  // Redirect to login if not authenticated
   useEffect(() => {
-    if (profile) {
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [authLoading, user, router]);
+
+  // Populate form once from profile data
+  useEffect(() => {
+    if (profile && !profileLoadedRef.current) {
+      profileLoadedRef.current = true;
       setFullName(profile.full_name || '');
       setPhone(profile.phone || '');
       setBirthDate(profile.birth_date || '');
@@ -75,6 +89,18 @@ export default function ProfilePage() {
     }
   };
 
+  // Show spinner while checking auth
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
       <Header />
@@ -83,7 +109,8 @@ export default function ProfilePage() {
         {/* Profile Card & Info */}
         <div className="md:col-span-2 space-y-6">
           <div className="p-6 rounded-2xl bg-[#111A16] border border-[#1E3A2B]">
-            <h2 className="text-xl font-black text-primary uppercase mb-4">Edit Profile</h2>
+            <h2 className="text-xl font-black text-primary uppercase mb-1">Edit Profile</h2>
+            <p className="text-xs text-muted-foreground mb-4">Manage your account details and preferences</p>
 
             {error && (
               <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">

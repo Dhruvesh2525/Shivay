@@ -16,22 +16,23 @@ export async function GET(request: Request) {
       const user = data.user;
       const session = data.session;
 
-      // 1. Enforce Single Session: Write the current access token to the database
       const adminSupabase = createAdminClient();
       
-      // Check if profile exists
+      // Check if profile exists and is complete (has phone number)
       const { data: profile } = await adminSupabase
         .from('profiles')
-        .select('id, phone, birth_date')
+        .select('id, phone, birth_date, full_name')
         .eq('id', user.id)
         .single();
 
-      if (!profile) {
-        // Redirection to finish registering Phone & Birth Date
-        return NextResponse.redirect(`${origin}/register?email=${encodeURIComponent(user.email ?? '')}&name=${encodeURIComponent(user.user_metadata?.full_name ?? '')}`);
+      // No profile at all, or profile missing required phone number → complete registration
+      if (!profile || !profile.phone) {
+        return NextResponse.redirect(
+          `${origin}/register?email=${encodeURIComponent(user.email ?? '')}&name=${encodeURIComponent(user.user_metadata?.full_name ?? profile?.full_name ?? '')}`
+        );
       }
 
-      // Profile exists, update active session token
+      // Profile is complete — update active session token
       await adminSupabase
         .from('profiles')
         .update({ active_session_id: session.access_token })

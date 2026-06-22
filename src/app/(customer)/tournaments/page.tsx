@@ -3,11 +3,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import MobileNav from '@/components/layout/mobile-nav';
-import { Trophy, Calendar, Users, Star } from 'lucide-react';
+import { Trophy, Calendar } from 'lucide-react';
 
 interface Tournament {
   id: string;
@@ -22,7 +21,6 @@ interface Tournament {
 
 export default function TournamentsListPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,15 +29,11 @@ export default function TournamentsListPage() {
     async function fetchTournaments() {
       try {
         setLoading(true);
-        // Fetch approved and published tournaments
-        const { data } = await supabase
-          .from('tournaments')
-          .select('id, name, sport, description, start_date, registration_deadline, entry_fee, status')
-          .in('status', ['approved', 'published', 'registration_open', 'registration_closed', 'in_progress'])
-          .is('deleted_at', null)
-          .order('start_date', { ascending: true });
-        
-        if (data) setTournaments(data as Tournament[]);
+        // Use the API route which uses admin client (bypasses RLS)
+        const res = await fetch('/api/tournaments');
+        if (!res.ok) throw new Error('Failed to fetch tournaments');
+        const json = await res.json();
+        setTournaments(json.tournaments || []);
       } catch (err) {
         console.error('Error fetching tournaments:', err);
       } finally {
@@ -48,6 +42,7 @@ export default function TournamentsListPage() {
     }
     fetchTournaments();
   }, []);
+
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0A0F0D]">

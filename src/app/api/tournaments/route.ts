@@ -3,6 +3,26 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+// Public GET - returns all active/upcoming tournaments (bypasses RLS)
+export async function GET() {
+  try {
+    const adminSupabase = createAdminClient();
+
+    const { data, error } = await adminSupabase
+      .from('tournaments')
+      .select('id, name, sport, description, start_date, registration_deadline, entry_fee, status, max_teams')
+      .in('status', ['approved', 'published', 'registration_open', 'registration_closed', 'in_progress'])
+      .is('deleted_at', null)
+      .order('start_date', { ascending: true });
+
+    if (error) throw error;
+
+    return NextResponse.json({ tournaments: data || [] });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Failed to fetch tournaments.' }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const { name, sport, description, rules, format, startDate, endDate, deadline, maxTeams, minTeamSize, maxTeamSize, entryFee, prizePool, allowIndividual } = await request.json();
@@ -46,7 +66,7 @@ export async function POST(request: Request) {
         entry_fee: entryFee || 0,
         prize_pool: prizePool,
         allow_individual_registration: allowIndividual || false,
-        status: profile.role === 'super_admin' ? 'approved' : 'pending' // Admin creations are auto-approved
+        status: profile.role === 'super_admin' ? 'approved' : 'pending'
       })
       .select()
       .single();

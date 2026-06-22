@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Calendar, Trophy, User, BookOpen } from 'lucide-react';
+import { Home, Calendar, Trophy, User, BookOpen, LogIn } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 
 export default function MobileNav() {
@@ -34,11 +34,24 @@ export default function MobileNav() {
               isActive ? 'text-primary' : 'text-[#6B8F7E] hover:text-[#A7C4B8]'
             }`}
           >
-            <Icon className="w-5.5 h-5.5" />
+            <Icon className="w-5 h-5" />
             <span className="text-[10px] font-semibold">{item.label}</span>
           </Link>
         );
       })}
+
+      {/* Show Login button when not authenticated */}
+      {!user && (
+        <Link
+          href="/login"
+          className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors duration-200 ${
+            pathname === '/login' ? 'text-primary' : 'text-[#6B8F7E] hover:text-[#A7C4B8]'
+          }`}
+        >
+          <LogIn className="w-5 h-5" />
+          <span className="text-[10px] font-semibold">Login</span>
+        </Link>
+      )}
     </nav>
   );
 }

@@ -2,32 +2,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, ShieldAlert } from 'lucide-react';
+import { Clock } from 'lucide-react';
 
 export default function FacilityStatus() {
-  const [isOpen, setIsOpen] = useState(true);
   const [timeString, setTimeString] = useState('');
 
   useEffect(() => {
-    const checkStatus = () => {
+    const update = () => {
       const now = new Date();
-      const hours = now.getHours();
-      
-      // Operating hours seed default: 06:00 to 23:00 (6 AM to 11 PM)
-      const openHour = 6;
-      const closeHour = 23;
-      
-      if (hours >= openHour && hours < closeHour) {
-        setIsOpen(true);
-        setTimeString('Open today: 6:00 AM - 11:00 PM');
-      } else {
-        setIsOpen(false);
-        setTimeString('Closed right now. Opens at 6:00 AM');
-      }
+      setTimeString(now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }));
     };
-
-    checkStatus();
-    const interval = setInterval(checkStatus, 60000); // Check every minute
+    update();
+    const interval = setInterval(update, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -40,15 +26,13 @@ export default function FacilityStatus() {
           </div>
           <div>
             <h3 className="text-xs font-bold text-[#A7C4B8] uppercase tracking-wider">Facility Hours</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">{timeString}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Open 24 hours · 7 days a week · Current time: {timeString}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className={`w-2.5 h-2.5 rounded-full ${isOpen ? 'bg-primary animate-pulse' : 'bg-red-500'}`} />
-          <span className="text-xs font-bold tracking-wide uppercase">
-            {isOpen ? 'Open Now' : 'Closed'}
-          </span>
+          <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+          <span className="text-xs font-bold tracking-wide uppercase text-primary">Open 24/7</span>
         </div>
       </div>
     </div>

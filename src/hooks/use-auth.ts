@@ -3,17 +3,24 @@ import { useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore, type Profile } from '@/stores/auth-store';
 
+// Module-level flag to prevent multiple simultaneous auth checks
+let authInitialized = false;
+let authSubscription: { unsubscribe: () => void } | null = null;
+
 export function useAuth() {
   const supabase = createClient();
   const { user, profile, loading, setAuth, setLoading, clearAuth } = useAuthStore();
 
   useEffect(() => {
+    // Only run the full initialization once across all hook instances
+    if (authInitialized) return;
+    authInitialized = true;
+
     const checkUser = async () => {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        // Sync profile details
         const { data: prof } = await supabase
           .from('profiles')
           .select('*')
@@ -28,7 +35,7 @@ export function useAuth() {
 
     checkUser();
 
-    // Set up auth state change listeners
+    // Set up auth state change listeners (only once)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const { data: prof } = await supabase
@@ -42,18 +49,27 @@ export function useAuth() {
         if (prof?.active_session_id && currentToken && prof.active_session_id !== currentToken) {
           await supabase.auth.signOut();
           clearAuth();
+          authInitialized = false;
+          authSubscription = null;
           window.location.href = '/login?error=session_terminated';
           return;
         }
 
         setAuth(session.user, prof as Profile);
       } else {
-        clearAuth();
+        // Only clear on explicit sign-out events, not on initial INITIAL_SESSION
+        if (event !== 'INITIAL_SESSION') {
+          clearAuth();
+        }
       }
     });
 
+    authSubscription = subscription;
+
+    // Cleanup on page unload (not on component unmount to keep state alive)
     return () => {
-      subscription.unsubscribe();
+      // Do NOT unsubscribe here — we want the listener to persist across page navigations
+      // The subscription is module-level and shared
     };
   }, []);
 
@@ -87,6 +103,8 @@ export function useAuth() {
     setLoading(true);
     await supabase.auth.signOut();
     clearAuth();
+    authInitialized = false;
+    authSubscription = null;
     window.location.href = '/login';
   };
 
