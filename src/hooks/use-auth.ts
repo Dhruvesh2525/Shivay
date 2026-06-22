@@ -3,46 +3,42 @@ import { useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore, type Profile } from '@/stores/auth-store';
 
+// Module-level guard: only set up the Supabase subscription once per browser session
+let subscriptionActive = false;
+
 export function useAuth() {
   const supabase = createClient();
-  const { user, profile, loading, setAuth, setLoading, clearAuth } = useAuthStore();
-  // Track if THIS store instance has already been initialized
-  const initialized = useRef(useAuthStore.getState().user !== null || !useAuthStore.getState().loading);
+  const { user, profile, loading, setAuth, clearAuth } = useAuthStore();
+  const didInit = useRef(false);
 
   useEffect(() => {
-    // If auth is already resolved (user known or explicitly logged out), skip re-fetch
-    if (!useAuthStore.getState().loading) return;
+    if (didInit.current || subscriptionActive) return;
+    didInit.current = true;
+    subscriptionActive = true;
 
-    let isMounted = true;
-
-    const init = async () => {
+    // Silent background revalidation — doesn't block UI since loading starts false
+    const revalidate = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-
-        if (!isMounted) return;
-
         if (session?.user) {
           const { data: prof } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
-
-          if (isMounted) setAuth(session.user, prof as Profile);
+          setAuth(session.user, prof as Profile);
         } else {
-          if (isMounted) clearAuth();
+          clearAuth();
         }
       } catch {
-        if (isMounted) clearAuth();
+        clearAuth();
       }
     };
 
-    init();
+    revalidate();
 
-    // Auth state change listener
+    // Listen for auth changes (sign-in, sign-out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!isMounted) return;
-
       if (session?.user) {
         const { data: prof } = await supabase
           .from('profiles')
@@ -50,35 +46,31 @@ export function useAuth() {
           .eq('id', session.user.id)
           .single();
 
-        if (!isMounted) return;
-
-        // Single Session Enforcement Check
-        const currentToken = session.access_token;
-        if (prof?.active_session_id && currentToken && prof.active_session_id !== currentToken) {
+        // Single session enforcement
+        if (prof?.active_session_id && session.access_token && prof.active_session_id !== session.access_token) {
           await supabase.auth.signOut();
           clearAuth();
+          subscriptionActive = false;
           window.location.href = '/login?error=session_terminated';
           return;
         }
-
         setAuth(session.user, prof as Profile);
       } else if (event === 'SIGNED_OUT') {
         clearAuth();
+        subscriptionActive = false;
       }
     });
 
     return () => {
-      isMounted = false;
       subscription.unsubscribe();
+      subscriptionActive = false;
     };
   }, []);
 
   const loginWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) throw error;
   };
@@ -86,9 +78,7 @@ export function useAuth() {
   const loginWithEmail = async (email: string) => {
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) throw error;
   };
@@ -96,15 +86,9 @@ export function useAuth() {
   const logout = async () => {
     await supabase.auth.signOut();
     clearAuth();
+    subscriptionActive = false;
     window.location.href = '/login';
   };
 
-  return {
-    user,
-    profile,
-    loading,
-    loginWithGoogle,
-    loginWithEmail,
-    logout,
-  };
+  return { user, profile, loading, loginWithGoogle, loginWithEmail, logout };
 }

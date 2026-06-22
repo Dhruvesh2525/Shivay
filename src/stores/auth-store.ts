@@ -1,5 +1,6 @@
 // src/stores/auth-store.ts
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface Profile {
   id: string;
@@ -24,11 +25,22 @@ interface AuthState {
   clearAuth: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  profile: null,
-  loading: true, // true until first auth check completes
-  setAuth: (user, profile) => set({ user, profile, loading: false }),
-  setLoading: (loading) => set({ loading }),
-  clearAuth: () => set({ user: null, profile: null, loading: false }),
-}));
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      user: null,
+      profile: null,
+      // Start as false — persisted data is available immediately from localStorage
+      // The hook will briefly revalidate in the background without blocking UI
+      loading: false,
+      setAuth: (user, profile) => set({ user, profile, loading: false }),
+      setLoading: (loading) => set({ loading }),
+      clearAuth: () => set({ user: null, profile: null, loading: false }),
+    }),
+    {
+      name: 'shivay-auth', // localStorage key
+      partialize: (state) => ({ user: state.user, profile: state.profile }),
+      // Don't persist loading — always start as false
+    }
+  )
+);
