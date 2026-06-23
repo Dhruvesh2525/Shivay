@@ -31,7 +31,7 @@ export default function TournamentsList({ tournaments }: { tournaments: Tourname
         {/* Only organizers and admins see this button */}
         {isOrganizer && (
           <button
-            onClick={() => router.push('/organizer')}
+            onClick={() => router.push('/admin')}
             className="px-3.5 py-1.5 rounded-lg border border-primary/20 bg-primary/10 text-primary font-bold text-xs"
           >
             Organizer Dashboard
