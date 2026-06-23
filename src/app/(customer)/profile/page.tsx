@@ -13,7 +13,7 @@ import Link from 'next/link';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, profile, loading: authLoading, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const supabase = createClient();
 
   const [fullName, setFullName] = useState('');
@@ -21,22 +21,20 @@ export default function ProfilePage() {
   const [birthDate, setBirthDate] = useState('');
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
-
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  // Only populate form from profile on initial load, not on every re-render
   const profileLoadedRef = useRef(false);
 
-  // Redirect to login if not authenticated
+  // Redirect guests to login (only after we're sure — avoid flash redirect)
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
-    }
-  }, [authLoading, user, router]);
+    const timer = setTimeout(() => {
+      if (!user) router.push('/login');
+    }, 800); // short grace period for auth to rehydrate from localStorage
+    return () => clearTimeout(timer);
+  }, [user, router]);
 
-  // Populate form once from profile data
+  // Populate form once from persisted profile
   useEffect(() => {
     if (profile && !profileLoadedRef.current) {
       profileLoadedRef.current = true;
@@ -47,56 +45,51 @@ export default function ProfilePage() {
     }
   }, [profile]);
 
+  // Fetch wallet transactions
   useEffect(() => {
-    async function fetchTransactions() {
-      if (!user) return;
-      const { data } = await supabase
-        .from('wallet_transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      if (data) {
-        setWalletTransactions(data);
-      }
-    }
-    fetchTransactions();
+    if (!user) return;
+    supabase
+      .from('wallet_transactions')
+      .select('id, reason, type, amount, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+      .then(({ data }) => { if (data) setWalletTransactions(data); });
   }, [user]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
     setError('');
     setSuccess('');
-
     try {
-      if (!user) throw new Error('Unauthenticated user.');
-
-      const { error: updateError } = await supabase
+      if (!user) throw new Error('Not authenticated');
+      const { error: err } = await supabase
         .from('profiles')
-        .update({
-          full_name: fullName,
-          phone,
-          birth_date: birthDate
-        })
+        .update({ full_name: fullName, phone, birth_date: birthDate })
         .eq('id', user.id);
-
-      if (updateError) throw updateError;
+      if (err) throw err;
       setSuccess('Profile updated successfully!');
     } catch (err: any) {
       setError(err.message || 'Failed to update profile.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  // Show spinner while checking auth
-  if (authLoading || !user) {
+  // If not logged in, show minimal guest state (not a full spinner)
+  if (!user) {
     return (
       <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
         <Header />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <main className="flex-1 flex flex-col items-center justify-center gap-4 px-4">
+          <p className="text-muted-foreground text-sm">Please sign in to view your profile.</p>
+          <Link href="/login" className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:bg-[#6EE7B7] transition-colors">
+            Login / Sign Up
+          </Link>
         </main>
+        <Footer />
+        <MobileNav />
       </div>
     );
   }
@@ -104,95 +97,53 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
       <Header />
-
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 pb-24 md:pb-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Profile Card & Info */}
+        {/* Profile Form */}
         <div className="md:col-span-2 space-y-6">
           <div className="p-6 rounded-2xl bg-[#111A16] border border-[#1E3A2B]">
             <h2 className="text-xl font-black text-primary uppercase mb-1">Edit Profile</h2>
-            <p className="text-xs text-muted-foreground mb-4">Manage your account details and preferences</p>
+            <p className="text-xs text-muted-foreground mb-4">Manage your account details</p>
 
-            {error && (
-              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
-                {success}
-              </div>
-            )}
+            {error && <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
+            {success && <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">{success}</div>}
 
             <form onSubmit={handleUpdate} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground text-sm focus:outline-none focus:border-primary"
-                />
+                <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground text-sm focus:outline-none focus:border-primary" />
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Email Address</label>
-                <input
-                  type="email"
-                  disabled
-                  value={user?.email || ''}
-                  className="w-full p-3 rounded-lg bg-[#0A0F0D] border border-[#1E3A2B] text-muted-foreground text-sm cursor-not-allowed"
-                />
+                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Email</label>
+                <input type="email" disabled value={user?.email || ''}
+                  className="w-full p-3 rounded-lg bg-[#0A0F0D] border border-[#1E3A2B] text-muted-foreground text-sm cursor-not-allowed" />
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Phone Number</label>
-                <input
-                  type="tel"
-                  required
-                  pattern="[0-9]{10}"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground text-sm focus:outline-none focus:border-primary"
-                />
+                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Phone</label>
+                <input type="tel" required pattern="[0-9]{10}" value={phone} onChange={(e) => setPhone(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground text-sm focus:outline-none focus:border-primary" />
               </div>
-
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Birth Date</label>
-                <input
-                  type="date"
-                  required
-                  value={birthDate}
-                  onChange={(e) => setBirthDate(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground text-sm focus:outline-none focus:border-primary"
-                />
+                <input type="date" required value={birthDate} onChange={(e) => setBirthDate(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground text-sm focus:outline-none focus:border-primary" />
               </div>
 
               <div className="flex gap-4 pt-2">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-black tracking-wide hover:bg-[#6EE7B7] transition-all transform active:scale-95 text-sm"
-                >
-                  {loading ? 'Saving Changes...' : 'Save Changes'}
+                <button type="submit" disabled={saving}
+                  className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-black tracking-wide hover:bg-[#6EE7B7] transition-all text-sm">
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </button>
-
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="px-6 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 font-bold flex items-center justify-center gap-2 transition-all text-sm"
-                >
+                <button type="button" onClick={logout}
+                  className="px-6 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 font-bold flex items-center gap-2 transition-all text-sm">
                   <LogOut className="w-4 h-4" /> Sign Out
                 </button>
               </div>
 
               {profile && ['super_admin', 'manager', 'organizer'].includes(profile.role) && (
                 <div className="pt-4 border-t border-[#1E3A2B] mt-4">
-                  <Link
-                    href="/admin"
-                    className="w-full py-3 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 font-black tracking-wider flex items-center justify-center gap-2 transition-all text-sm uppercase"
-                  >
+                  <Link href="/admin"
+                    className="w-full py-3 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 font-black tracking-wider flex items-center justify-center gap-2 transition-all text-sm uppercase">
                     <Shield className="w-4 h-4" /> Access Admin Dashboard
                   </Link>
                 </div>
@@ -201,12 +152,10 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Wallet balance & ledger widget */}
+        {/* Wallet */}
         <div className="space-y-6">
           <div className="p-6 rounded-2xl bg-gradient-to-br from-[#111A16] to-[#0A0F0D] border border-[#1E3A2B]">
-            <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-              Personal Wallet
-            </span>
+            <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">Personal Wallet</span>
             <h3 className="text-sm font-bold text-muted-foreground mt-4">Wallet Balance</h3>
             <p className="text-4xl font-black text-primary font-mono mt-1">₹{walletBalance.toFixed(2)}</p>
           </div>
@@ -214,7 +163,7 @@ export default function ProfilePage() {
           <div className="p-6 rounded-2xl bg-[#111A16] border border-[#1E3A2B]">
             <h4 className="text-xs font-bold text-[#A7C4B8] uppercase tracking-wider mb-4">Transaction History</h4>
             {walletTransactions.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No recent transaction logs found.</p>
+              <p className="text-xs text-muted-foreground">No recent transactions.</p>
             ) : (
               <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
                 {walletTransactions.map((tx) => (
@@ -233,7 +182,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
-
       <Footer />
       <MobileNav />
     </div>
