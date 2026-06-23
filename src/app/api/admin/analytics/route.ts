@@ -22,6 +22,70 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Forbidden. Admin credentials required.' }, { status: 403 });
     }
 
+    if (adminProfile.role === 'organizer') {
+      const { data: tournaments } = await adminSupabase
+        .from('tournaments')
+        .select('id, name, sport, entry_fee, status, max_teams, prize_pool')
+        .eq('organizer_id', user.id)
+        .is('deleted_at', null);
+
+      const tournamentIds = tournaments?.map(t => t.id) || [];
+      let totalTeams = 0;
+      let totalIndividuals = 0;
+      let tournamentsSummary: any[] = [];
+
+      if (tournamentIds.length > 0) {
+        const { data: teams } = await adminSupabase
+          .from('tournament_teams')
+          .select('id, tournament_id')
+          .in('tournament_id', tournamentIds);
+
+        const { data: individuals } = await adminSupabase
+          .from('tournament_individual_registrations')
+          .select('id, tournament_id')
+          .in('tournament_id', tournamentIds);
+
+        const teamCountsByTournament = (teams || []).reduce((acc: any, curr: any) => {
+          acc[curr.tournament_id] = (acc[curr.tournament_id] || 0) + 1;
+          return acc;
+        }, {});
+
+        const indCountsByTournament = (individuals || []).reduce((acc: any, curr: any) => {
+          acc[curr.tournament_id] = (acc[curr.tournament_id] || 0) + 1;
+          return acc;
+        }, {});
+
+        totalTeams = teams?.length || 0;
+        totalIndividuals = individuals?.length || 0;
+
+        tournamentsSummary = (tournaments || []).map(t => ({
+          id: t.id,
+          name: t.name,
+          sport: t.sport,
+          entryFee: Number(t.entry_fee),
+          status: t.status,
+          maxTeams: t.max_teams,
+          prizePool: t.prize_pool,
+          registeredTeams: teamCountsByTournament[t.id] || 0,
+          registeredIndividuals: indCountsByTournament[t.id] || 0
+        }));
+      }
+
+      const totalTournaments = tournaments?.length || 0;
+      const pendingTournaments = tournaments?.filter(t => t.status === 'pending').length || 0;
+      const activeTournaments = tournaments?.filter(t => ['approved', 'published', 'registration_open', 'in_progress'].includes(t.status)).length || 0;
+
+      return NextResponse.json({
+        role: 'organizer',
+        totalTournaments,
+        pendingTournaments,
+        activeTournaments,
+        totalTeams,
+        totalIndividuals,
+        tournamentsSummary
+      });
+    }
+
     // 1. Calculate Revenue Statistics (Confirmed & Completed bookings)
     const { data: bookings } = await adminSupabase
       .from('bookings')

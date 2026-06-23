@@ -1,8 +1,9 @@
 // src/app/(admin)/admin/layout.tsx
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { LayoutDashboard, Calendar, Settings, ShieldAlert, Award, FileText } from 'lucide-react';
 
@@ -12,15 +13,32 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { profile } = useAuth();
+  const router = useRouter();
+  const { profile, loading } = useAuth();
 
-  const sidebarLinks = [
-    { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-    { label: 'Courts & Settings', href: '/admin/courts', icon: Settings },
-    { label: 'Bookings List', href: '/admin/bookings', icon: Calendar },
-    { label: 'Tournaments', href: '/admin/tournaments', icon: Award },
-    { label: 'Refund Claims', href: '/admin/refunds', icon: ShieldAlert },
+  useEffect(() => {
+    if (!loading && profile) {
+      if (profile.role === 'organizer') {
+        if (pathname !== '/admin/tournaments' && pathname !== '/admin') {
+          router.replace('/admin');
+        }
+      } else if (profile.role === 'manager') {
+        if (pathname === '/admin/refunds' || pathname === '/admin/tournaments') {
+          router.replace('/admin');
+        }
+      }
+    }
+  }, [profile, loading, pathname, router]);
+
+  const allLinks = [
+    { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, roles: ['super_admin', 'manager', 'organizer'] },
+    { label: 'Courts & Settings', href: '/admin/courts', icon: Settings, roles: ['super_admin'] },
+    { label: 'Bookings List', href: '/admin/bookings', icon: Calendar, roles: ['super_admin', 'manager'] },
+    { label: 'Tournaments', href: '/admin/tournaments', icon: Award, roles: ['super_admin', 'organizer'] },
+    { label: 'Refund Claims', href: '/admin/refunds', icon: ShieldAlert, roles: ['super_admin'] },
   ];
+
+  const sidebarLinks = allLinks.filter(link => profile && link.roles.includes(profile.role));
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#0A0F0D]">
