@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
-    const { data: adminProfile } = await supabase
+    const { data: adminProfile } = await adminSupabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)

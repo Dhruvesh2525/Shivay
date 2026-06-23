@@ -27,7 +27,7 @@ ALTER TABLE organizer_applications ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION get_auth_role()
 RETURNS TEXT AS $$
   SELECT role FROM profiles WHERE id = auth.uid();
-$$ LANGUAGE sql SECURITY INVOKER;
+$$ LANGUAGE sql SECURITY DEFINER;
 
 -- =====================================================================
 -- 1. Profiles Policies

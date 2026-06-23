@@ -23,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased dark">
-      <body className="min-h-full flex flex-col bg-[#0A0F0D] text-[#F0FDF4]">
+    <html lang="en" className="h-full antialiased dark" suppressHydrationWarning>
+      <body className="min-h-full flex flex-col bg-[#0A0F0D] text-[#F0FDF4]" suppressHydrationWarning>
         <ServiceWorkerRegister />
         {children}
       </body>

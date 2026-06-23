@@ -31,6 +31,8 @@ export default function AdminCourts() {
   const [opensAt, setOpensAt] = useState('06:00:00');
   const [closesAt, setClosesAt] = useState('23:00:00');
   const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsSuccess, setSettingsSuccess] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   const fetchCourtsAndSettings = async () => {
     try {
@@ -106,6 +108,8 @@ export default function AdminCourts() {
   const handleSaveSettings = async () => {
     try {
       setSavingSettings(true);
+      setSettingsSuccess(false);
+      setSettingsError(null);
       const { error } = await supabase
         .from('facility_settings')
         .upsert({
@@ -114,9 +118,11 @@ export default function AdminCourts() {
         });
 
       if (error) throw error;
-      alert('Operating hours settings saved!');
-    } catch (err) {
+      setSettingsSuccess(true);
+      setTimeout(() => setSettingsSuccess(false), 3000);
+    } catch (err: any) {
       console.error('Failed to save settings:', err);
+      setSettingsError(err.message || 'Failed to save settings.');
     } finally {
       setSavingSettings(false);
     }
@@ -135,6 +141,18 @@ export default function AdminCourts() {
           <Settings className="w-5 h-5 text-primary" />
           <h2 className="text-lg font-bold">Facility Operating Hours</h2>
         </div>
+
+        {settingsSuccess && (
+          <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-primary text-xs font-bold animate-in fade-in duration-200">
+            Operating hours settings saved successfully!
+          </div>
+        )}
+
+        {settingsError && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold animate-in fade-in duration-200">
+            {settingsError}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

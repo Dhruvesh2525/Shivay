@@ -25,6 +25,7 @@ export default function AdminRefundsQueue() {
   const [requests, setRequests] = useState<RefundRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchQueue = async () => {
     try {
@@ -55,8 +56,8 @@ export default function AdminRefundsQueue() {
   const handleDecision = async (id: string, action: 'approve' | 'reject', refundMethod = 'wallet') => {
     try {
       setProcessingId(id);
-      
-      const reqDetail = requests.find(r => r.id === id);
+      setError(null);
+      const reqDetail = requests.find((r) => r.id === id);
       if (!reqDetail) return;
 
       const res = await fetch('/api/admin/refunds', {
@@ -78,7 +79,7 @@ export default function AdminRefundsQueue() {
 
       fetchQueue();
     } catch (err: any) {
-      alert(err.message || 'Refund processing failed.');
+      setError(err.message || 'Refund processing failed.');
     } finally {
       setProcessingId(null);
     }
@@ -90,6 +91,13 @@ export default function AdminRefundsQueue() {
         <h1 className="text-3xl font-bold tracking-tight text-primary">Refund Queue</h1>
         <p className="text-[#A7C4B8] text-sm mt-1">Review pending customer cancellation refund claims.</p>
       </div>
+
+      {error && (
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-1.5 animate-in fade-in duration-200">
+          <ShieldAlert className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {loading ? (
         <div className="p-8 text-center text-[#A7C4B8]">Loading refund queue details...</div>

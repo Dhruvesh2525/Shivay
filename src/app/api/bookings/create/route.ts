@@ -72,6 +72,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Maximum booking duration is 4 hours (8 slots).' }, { status: 400 });
     }
 
+    // Ensure slots are contiguous
+    const isSlotsContiguous = (slotList: string[]) => {
+      if (slotList.length <= 1) return true;
+      const minutes = slotList.map(s => {
+        const [h, m] = s.split(':').map(Number);
+        return h * 60 + m;
+      }).sort((a, b) => a - b);
+
+      for (let i = 0; i < minutes.length - 1; i++) {
+        if (minutes[i + 1] - minutes[i] !== 30) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    if (!isSlotsContiguous(slots)) {
+      return NextResponse.json({ error: 'Selected slots must be contiguous.' }, { status: 400 });
+    }
+
     // 2. Overbooking Protection: Query existing bookings and slot locks
     // Delete expired locks first to free up slots
     const nowStr = new Date().toISOString();

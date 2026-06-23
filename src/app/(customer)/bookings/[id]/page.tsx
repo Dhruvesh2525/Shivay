@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import MobileNav from '@/components/layout/mobile-nav';
-import { ShieldCheck, Download, Calendar, ArrowLeft, FileText, BadgeInfo } from 'lucide-react';
+import { ShieldCheck, Download, Calendar, ArrowLeft, FileText, BadgeInfo, ShieldAlert } from 'lucide-react';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -20,6 +20,18 @@ export default function BookingDetailPage({ params }: Props) {
 
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Review states
+  const [existingReview, setExistingReview] = useState<any>(null);
+  const [turfQuality, setTurfQuality] = useState(5);
+  const [lighting, setLighting] = useState(5);
+  const [cleanliness, setCleanliness] = useState(5);
+  const [staff, setStaff] = useState(5);
+  const [comment, setComment] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchBookingDetail() {
@@ -39,6 +51,16 @@ export default function BookingDetailPage({ params }: Props) {
           .single();
         
         setBooking(data);
+
+        // Fetch existing review if booking exists
+        if (data) {
+          const { data: rev } = await supabase
+            .from('reviews')
+            .select('*')
+            .eq('booking_id', id)
+            .maybeSingle();
+          setExistingReview(rev);
+        }
       } catch (err) {
         console.error('Error fetching booking detail:', err);
       } finally {
@@ -81,6 +103,7 @@ export default function BookingDetailPage({ params }: Props) {
     e.preventDefault();
     try {
       setRefundSubmitting(true);
+      setError(null);
       const res = await fetch('/api/refunds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -111,9 +134,49 @@ export default function BookingDetailPage({ params }: Props) {
       
       setBooking(data);
     } catch (err: any) {
-      alert(err.message || 'Refund submission failed.');
+      setError(err.message || 'Refund submission failed.');
     } finally {
       setRefundSubmitting(false);
+    }
+  };
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setReviewSubmitting(true);
+      setReviewError(null);
+      
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: id,
+          turfQuality,
+          lighting,
+          cleanliness,
+          staff,
+          comment
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to submit review.');
+      }
+
+      setReviewSuccess(true);
+      
+      // Reload review detail
+      const { data: rev } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('booking_id', id)
+        .maybeSingle();
+      setExistingReview(rev);
+    } catch (err: any) {
+      setReviewError(err.message || 'Failed to submit review.');
+    } finally {
+      setReviewSubmitting(false);
     }
   };
 
@@ -200,7 +263,7 @@ export default function BookingDetailPage({ params }: Props) {
 
             {isConfirmed && (
               <button
-                onClick={() => setShowRefundModal(true)}
+                onClick={() => { setError(null); setShowRefundModal(true); }}
                 className="w-full py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-[#A7C4B8] font-bold text-xs transition-colors"
               >
                 Cancel Booking & Request Refund
@@ -208,6 +271,104 @@ export default function BookingDetailPage({ params }: Props) {
             )}
           </div>
         </div>
+
+        {/* Review Section */}
+        {existingReview ? (
+          <div className="mt-6 p-6 rounded-2xl bg-[#111A16] border border-[#1E3A2B] space-y-4">
+            <h3 className="text-xs font-bold text-[#A7C4B8] uppercase tracking-wider">Your Review</h3>
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3 text-[#A7C4B8]">
+                <div className="flex justify-between items-center bg-[#1A2620] p-2.5 rounded-lg border border-[#1E3A2B]/40 font-bold">
+                  <span>Turf Quality:</span>
+                  <span className="text-yellow-400 font-mono">{existingReview.turf_quality} ★</span>
+                </div>
+                <div className="flex justify-between items-center bg-[#1A2620] p-2.5 rounded-lg border border-[#1E3A2B]/40 font-bold">
+                  <span>Lighting:</span>
+                  <span className="text-yellow-400 font-mono">{existingReview.lighting} ★</span>
+                </div>
+                <div className="flex justify-between items-center bg-[#1A2620] p-2.5 rounded-lg border border-[#1E3A2B]/40 font-bold">
+                  <span>Cleanliness:</span>
+                  <span className="text-yellow-400 font-mono">{existingReview.cleanliness} ★</span>
+                </div>
+                <div className="flex justify-between items-center bg-[#1A2620] p-2.5 rounded-lg border border-[#1E3A2B]/40 font-bold">
+                  <span>Staff:</span>
+                  <span className="text-yellow-400 font-mono">{existingReview.staff} ★</span>
+                </div>
+              </div>
+              {existingReview.comment && (
+                <div className="p-3 bg-[#1A2620]/60 border border-[#1E3A2B]/35 rounded-lg text-foreground italic leading-relaxed">
+                  &ldquo;{existingReview.comment}&rdquo;
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          (booking.status === 'confirmed' || booking.status === 'completed') && (
+            <div className="mt-6 p-6 rounded-2xl bg-[#111A16] border border-[#1E3A2B] space-y-4">
+              <h3 className="text-xs font-bold text-[#A7C4B8] uppercase tracking-wider">Submit a Review</h3>
+              {reviewSuccess ? (
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center text-emerald-400 text-xs font-bold">
+                  Thank you! Your review has been submitted.
+                </div>
+              ) : (
+                <form onSubmit={handleReviewSubmit} className="space-y-4">
+                  {reviewError && (
+                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-1.5">
+                      <ShieldAlert className="w-3.5 h-3.5 animate-pulse" />
+                      <span>{reviewError}</span>
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Turf Quality', value: turfQuality, setter: setTurfQuality },
+                      { label: 'Lighting', value: lighting, setter: setLighting },
+                      { label: 'Cleanliness', value: cleanliness, setter: setCleanliness },
+                      { label: 'Staff & Service', value: staff, setter: setStaff },
+                    ].map((ratingField) => (
+                      <div key={ratingField.label} className="flex justify-between items-center text-xs">
+                        <span className="text-[#A7C4B8] font-bold">{ratingField.label}</span>
+                        <div className="flex gap-1.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => ratingField.setter(star)}
+                              className={`text-lg leading-none transition-colors ${
+                                star <= ratingField.value ? 'text-yellow-400' : 'text-neutral-700'
+                              }`}
+                            >
+                              ★
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase">Your Comment</label>
+                    <textarea
+                      placeholder="Share your experience playing at our arena..."
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      rows={3}
+                      className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-xs"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={reviewSubmitting}
+                    className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-black tracking-wider hover:bg-[#6EE7B7] transition-all transform active:scale-95 text-xs text-center"
+                  >
+                    {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                  </button>
+                </form>
+              )}
+            </div>
+          )
+        )}
 
         {/* Refund Submission Form Modal */}
         {showRefundModal && (
@@ -227,6 +388,12 @@ export default function BookingDetailPage({ params }: Props) {
               </div>
 
               <form onSubmit={handleRefundSubmit} className="space-y-4">
+                {error && (
+                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-1.5">
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Reason for Cancellation</label>
                   <textarea

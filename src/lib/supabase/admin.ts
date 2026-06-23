@@ -1,6 +1,5 @@
 // src/lib/supabase/admin.ts
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import ws from 'ws';
 
 export const createAdminClient = () => {
   return createSupabaseClient(
@@ -10,9 +9,6 @@ export const createAdminClient = () => {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
-      },
-      realtime: {
-        transport: ws as any,
       },
       global: {
         headers: {

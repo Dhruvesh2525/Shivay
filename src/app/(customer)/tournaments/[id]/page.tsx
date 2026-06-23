@@ -32,6 +32,7 @@ export default function TournamentDetailPage({ params }: Props) {
 
   const [regLoading, setRegLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchTourneyDetail() {
@@ -57,6 +58,7 @@ export default function TournamentDetailPage({ params }: Props) {
     e.preventDefault();
     try {
       setRegLoading(true);
+      setError(null);
       const playersList = playerRoster.split(',').map((p) => p.trim()).filter(Boolean);
 
       const res = await fetch('/api/tournaments/register', {
@@ -65,7 +67,7 @@ export default function TournamentDetailPage({ params }: Props) {
         body: JSON.stringify({
           tournamentId: id,
           registrationType: regType,
-          teamName,
+          teamName: regType === 'team' ? teamName : undefined,
           captainName,
           captainPhone,
           captainEmail,
@@ -84,7 +86,7 @@ export default function TournamentDetailPage({ params }: Props) {
         router.push('/tournaments');
       }, 1500);
     } catch (err: any) {
-      alert(err.message || 'Registration failed.');
+      setError(err.message || 'Registration failed.');
     } finally {
       setRegLoading(false);
     }
@@ -275,6 +277,12 @@ export default function TournamentDetailPage({ params }: Props) {
                       </select>
                     </div>
                   </>
+                )}
+
+                {error && (
+                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold animate-in fade-in duration-200">
+                    {error}
+                  </div>
                 )}
 
                 <button

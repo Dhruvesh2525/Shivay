@@ -1,6 +1,7 @@
 // src/components/home/home-data.tsx
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Zap, ArrowRight, Megaphone, AlertTriangle, AlertCircle, MessageSquare, ExternalLink, Star } from 'lucide-react';
 
@@ -51,7 +52,11 @@ function getProfileName(profiles: Review['profiles']): string {
 
 export default function HomeData({ courts, announcements, reviews }: Props) {
   const router = useRouter();
-  const nextSlot = getNextSlot();
+  const [nextSlot, setNextSlot] = useState<string>('');
+
+  useEffect(() => {
+    setNextSlot(getNextSlot());
+  }, []);
   const googleReviewUrl = process.env.NEXT_PUBLIC_GOOGLE_REVIEW_URL || '#';
 
   return (

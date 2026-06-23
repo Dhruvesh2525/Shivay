@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import MobileNav from '@/components/layout/mobile-nav';
-import { Calendar, Zap, CreditCard, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Calendar, Zap, CreditCard, ShieldCheck, ArrowLeft, AlertTriangle } from 'lucide-react';
 
 interface Props {
   params: Promise<{ courtId: string }>;
@@ -32,6 +32,8 @@ export default function BookCourtPage({ params }: Props) {
   // Pricing calculator summaries
   const [checkoutPrice, setCheckoutPrice] = useState({ basePrice: 0, discountPercent: 0, discountAmount: 0, finalPrice: 0 });
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Local copy of fetched pricing rules and discounts for immediate price calculation
   const [pricingRules, setPricingRules] = useState<any[]>([]);
@@ -57,61 +59,25 @@ export default function BookCourtPage({ params }: Props) {
     if (!courtId || !selectedDate) return;
     try {
       setLoading(true);
-      // Fetch Court details
-      const { data: courtDetail } = await supabase
-          .from('courts')
-          .select('*')
-          .eq('id', courtId)
-          .single();
       
+      const res = await fetch(`/api/book/details?courtId=${courtId}&date=${selectedDate}`);
+      if (!res.ok) {
+        throw new Error('Failed to fetch slots details from server.');
+      }
+      
+      const data = await res.json();
+      const { court: courtDetail, opHours, bookingsData, locksData, pricing, discounts } = data;
+
+      if (!courtDetail) return;
       setCourt(courtDetail);
 
-      // Fetch operating hours
-      const { data: opHours } = await supabase
-          .from('facility_settings')
-          .select('value')
-          .eq('key', 'operating_hours')
-          .single();
-      
-      const startHour = opHours?.value ? Number(opHours.value.opens_at.split(':')[0]) : 6;
-      const endHour = opHours?.value ? Number(opHours.value.closes_at.split(':')[0]) : 23;
+      const startHour = opHours?.value ? Number((opHours.value as any).opens_at.split(':')[0]) : 6;
+      const endHour = opHours?.value ? Number((opHours.value as any).closes_at.split(':')[0]) : 23;
 
-      // Fetch bookings for this day
-      const { data: bookingsData } = await supabase
-          .from('booking_slots')
-          .select('slot_time')
-          .eq('court_id', courtId)
-          .eq('slot_date', selectedDate);
-      
-      const bookedSet = new Set(bookingsData?.map(b => b.slot_time) || []);
-
-      // Fetch locks for this day
-      const { data: locksData } = await supabase
-          .from('slot_locks')
-          .select('slot_time')
-          .eq('court_id', courtId)
-          .eq('slot_date', selectedDate)
-          .gt('locked_until', new Date().toISOString());
-      
-      const lockedSet = new Set(locksData?.map(l => l.slot_time) || []);
-
-      // Generate 30-min slots based on sport price rules
-      const resolvedDayType = new Date(selectedDate).getDay() === 0 || new Date(selectedDate).getDay() === 6 ? 'weekend' : 'weekday';
-      const { data: pricing } = await supabase
-          .from('pricing_rules')
-          .select('*')
-          .eq('sport', courtDetail.sport)
-          .eq('day_type', resolvedDayType);
+      const bookedSet = new Set(bookingsData?.map((b: any) => b.slot_time) || []);
+      const lockedSet = new Set(locksData?.map((l: any) => l.slot_time) || []);
 
       setPricingRules(pricing || []);
-
-      // Fetch active duration discounts for local calculation
-      const { data: discounts } = await supabase
-          .from('duration_discounts')
-          .select('*')
-          .eq('sport', courtDetail.sport)
-          .eq('is_active', true);
-
       setDurationDiscounts(discounts || []);
 
       const generatedSlots = [];
@@ -119,7 +85,7 @@ export default function BookCourtPage({ params }: Props) {
         const timeBlocks = ['00', '30'];
         for (const m of timeBlocks) {
           const slotTime = `${String(h).padStart(2, '0')}:${m}:00`;
-          const rule = pricing?.find(r => slotTime >= r.start_time && slotTime < r.end_time);
+          const rule = pricing?.find((r: any) => slotTime >= r.start_time && slotTime < r.end_time);
           let price = rule ? Number(rule.price_per_30min) : 300;
 
           generatedSlots.push({
@@ -190,6 +156,40 @@ export default function BookCourtPage({ params }: Props) {
     });
   }, [selectedSlots, pricingRules, durationDiscounts, court]);
 
+  const isSlotsContiguous = (slotList: string[]) => {
+    if (slotList.length <= 1) return true;
+    const minutes = slotList.map(s => {
+      const [h, m] = s.split(':').map(Number);
+      return h * 60 + m;
+    }).sort((a, b) => a - b);
+
+    for (let i = 0; i < minutes.length - 1; i++) {
+      if (minutes[i + 1] - minutes[i] !== 30) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  useEffect(() => {
+    if (selectedSlots.length === 0) {
+      setValidationError(null);
+      return;
+    }
+
+    if (court?.sport === 'cricket' && selectedSlots.length < 2) {
+      setValidationError('Cricket bookings require a minimum of 2 slots (1 hour).');
+      return;
+    }
+
+    if (!isSlotsContiguous(selectedSlots)) {
+      setValidationError('Please select contiguous (consecutive) slots.');
+      return;
+    }
+
+    setValidationError(null);
+  }, [selectedSlots, court]);
+
   const handleToggleSlot = (time: string) => {
     setSelectedSlots((prev) =>
       prev.includes(time) ? prev.filter((t) => t !== time) : [...prev, time]
@@ -244,7 +244,7 @@ export default function BookCourtPage({ params }: Props) {
               const verifyData = await verifyRes.json();
               router.push(`/bookings/${verifyData.id}?status=confirmed`);
             } else {
-              alert('Payment verification failed.');
+              setError('Payment verification failed.');
             }
           },
           theme: { color: '#34D399' }
@@ -256,7 +256,7 @@ export default function BookCourtPage({ params }: Props) {
 
       document.body.appendChild(script);
     } catch (err: any) {
-      alert(err.message || 'Checkout failed.');
+      setError(err.message || 'Checkout failed.');
     } finally {
       setCheckoutLoading(false);
     }
@@ -267,6 +267,13 @@ export default function BookCourtPage({ params }: Props) {
       <Header />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 pb-32">
+        {error && (
+          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-1.5">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {court && (
           <div className="mb-6">
             <button 
@@ -351,26 +358,35 @@ export default function BookCourtPage({ params }: Props) {
 
       {/* Sticky Bottom checkout bar */}
       {selectedSlots.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#111A16]/95 border-t border-[#1E3A2B] p-4 flex items-center justify-between backdrop-blur-xl md:max-w-4xl md:mx-auto md:rounded-t-2xl">
-          <div>
-            <span className="text-[10px] text-muted-foreground uppercase font-semibold">
-              Selected {selectedSlots.length} slot(s) • {selectedSlots.length * 30} mins
-            </span>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-xl font-black text-primary font-mono">₹{checkoutPrice.finalPrice}</span>
-              {checkoutPrice.discountAmount > 0 && (
-                <span className="text-xs text-[#6B8F7E] line-through font-mono">₹{checkoutPrice.basePrice}</span>
-              )}
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#111A16]/95 border-t border-[#1E3A2B] p-4 flex flex-col gap-3 backdrop-blur-xl md:max-w-4xl md:mx-auto md:rounded-t-2xl">
+          {validationError && (
+            <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg flex items-center gap-1.5 font-bold">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>{validationError}</span>
             </div>
-          </div>
+          )}
 
-          <button
-            onClick={handleCheckout}
-            disabled={checkoutLoading}
-            className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-black tracking-wider flex items-center gap-2 hover:bg-[#6EE7B7] transition-all transform active:scale-95 text-sm"
-          >
-            <CreditCard className="w-4 h-4" /> {checkoutLoading ? 'Processing...' : 'Pay & Book'}
-          </button>
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                Selected {selectedSlots.length} slot(s) • {selectedSlots.length * 30} mins
+              </span>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <span className="text-xl font-black text-primary font-mono">₹{checkoutPrice.finalPrice}</span>
+                {checkoutPrice.discountAmount > 0 && (
+                  <span className="text-xs text-[#6B8F7E] line-through font-mono">₹{checkoutPrice.basePrice}</span>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={handleCheckout}
+              disabled={checkoutLoading || !!validationError}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-black tracking-wider flex items-center gap-2 hover:bg-[#6EE7B7] transition-all transform active:scale-95 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <CreditCard className="w-4 h-4" /> {checkoutLoading ? 'Processing...' : 'Pay & Book'}
+            </button>
+          </div>
         </div>
       )}
 
