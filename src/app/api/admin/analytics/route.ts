@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const adminSupabase = createAdminClient();
 
-    // Verify authorized user context (Super Admin only)
+    // Verify authorized user context
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
@@ -22,12 +22,29 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Forbidden. Admin credentials required.' }, { status: 403 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const startDateParam = searchParams.get('startDate'); // YYYY-MM-DD
+    const endDateParam = searchParams.get('endDate'); // YYYY-MM-DD
+    const sportParam = searchParams.get('sport') || 'all'; // 'all' | 'cricket' | 'pickleball'
+
     if (adminProfile.role === 'organizer') {
-      const { data: tournaments } = await adminSupabase
+      let tournamentsQuery = adminSupabase
         .from('tournaments')
-        .select('id, name, sport, entry_fee, status, max_teams, prize_pool')
+        .select('id, name, sport, entry_fee, status, max_teams, prize_pool, start_date')
         .eq('organizer_id', user.id)
         .is('deleted_at', null);
+
+      if (sportParam !== 'all') {
+        tournamentsQuery = tournamentsQuery.eq('sport', sportParam);
+      }
+      if (startDateParam) {
+        tournamentsQuery = tournamentsQuery.gte('start_date', startDateParam);
+      }
+      if (endDateParam) {
+        tournamentsQuery = tournamentsQuery.lte('start_date', endDateParam);
+      }
+
+      const { data: tournaments } = await tournamentsQuery.order('created_at', { ascending: false });
 
       const tournamentIds = tournaments?.map(t => t.id) || [];
       let totalTeams = 0;
@@ -87,47 +104,120 @@ export async function GET(request: Request) {
     }
 
     // 1. Calculate Revenue Statistics (Confirmed & Completed bookings)
-    const { data: bookings } = await adminSupabase
+    let bookingsQuery = adminSupabase
       .from('bookings')
-      .select('final_price, booking_date, court_id, total_slots')
+      .select(`
+        id,
+        final_price,
+        booking_date,
+        court_id,
+        total_slots,
+        status,
+        created_at,
+        profiles (
+          full_name,
+          email
+        ),
+        courts (
+          name,
+          sport
+        )
+      `)
       .in('status', ['confirmed', 'completed']);
 
-    let totalRevenue = 0;
+    if (startDateParam) {
+      bookingsQuery = bookingsQuery.gte('booking_date', startDateParam);
+    }
+    if (endDateParam) {
+      bookingsQuery = bookingsQuery.lte('booking_date', endDateParam);
+    }
+
+    const { data: bookings, error: bookingsErr } = await bookingsQuery;
+    if (bookingsErr) throw bookingsErr;
+
+    // Filter by sport
+    const filteredBookings = bookings?.filter((b: any) => {
+      if (sportParam === 'all') return true;
+      return b.courts?.sport === sportParam;
+    }) || [];
+
+    // Date range helper for trend chart
+    let start = startDateParam;
+    if (!start) {
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      start = d.toISOString().split('T')[0];
+    }
+    let end = endDateParam;
+    if (!end) {
+      end = new Date().toISOString().split('T')[0];
+    }
+
+    const datesList: string[] = [];
+    const curr = new Date(start);
+    const last = new Date(end);
+    let count = 0;
+    while (curr <= last && count < 30) {
+      datesList.push(curr.toISOString().split('T')[0]);
+      curr.setDate(curr.getDate() + 1);
+      count++;
+    }
+
     const dailyRevenue: Record<string, number> = {};
-    
-    bookings?.forEach((b) => {
+    datesList.forEach(d => {
+      dailyRevenue[d] = 0;
+    });
+
+    let totalRevenue = 0;
+    filteredBookings.forEach((b: any) => {
       const price = Number(b.final_price);
       totalRevenue += price;
       
       const dateKey = b.booking_date;
-      dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + price;
+      if (dailyRevenue[dateKey] !== undefined) {
+        dailyRevenue[dateKey] += price;
+      } else {
+        dailyRevenue[dateKey] = price;
+      }
     });
 
     // Sort dates
     const sortedRevenue = Object.entries(dailyRevenue)
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([date, revenue]) => ({ date, revenue }))
-      .slice(-7); // Get last 7 days
+      .map(([date, revenue]) => ({ date, revenue }));
 
     // 2. Fetch court utilization statistics
-    const { data: courts } = await adminSupabase
+    let courtsQuery = adminSupabase
       .from('courts')
       .select('id, name, sport')
       .eq('is_active', true);
+    
+    if (sportParam !== 'all') {
+      courtsQuery = courtsQuery.eq('sport', sportParam);
+    }
+    const { data: courts } = await courtsQuery;
 
-    const { data: slots } = await adminSupabase
+    let slotsQuery = adminSupabase
       .from('booking_slots')
       .select('court_id, slot_date');
+
+    if (startDateParam) {
+      slotsQuery = slotsQuery.gte('slot_date', startDateParam);
+    }
+    if (endDateParam) {
+      slotsQuery = slotsQuery.lte('slot_date', endDateParam);
+    }
+    const { data: slots } = await slotsQuery;
 
     const courtBookingCount: Record<string, number> = {};
     slots?.forEach((s) => {
       courtBookingCount[s.court_id] = (courtBookingCount[s.court_id] || 0) + 1;
     });
 
+    const daysCount = datesList.length || 7;
     const utilization = courts?.map((c) => {
-      // Mock utilization rate based on bookings count
       const totalBookedSlots = courtBookingCount[c.id] || 0;
-      const totalPossibleSlots = 14 * 34; // 14 days, 34 slots of 30-mins per day (6 AM - 11 PM)
+      const totalPossibleSlots = daysCount * 34; // days count * 34 slots of 30-mins per day (6 AM - 11 PM)
       const rate = Math.min(Math.round((totalBookedSlots / totalPossibleSlots) * 100), 100);
 
       return {
@@ -144,12 +234,26 @@ export async function GET(request: Request) {
       .select('id', { count: 'exact', head: true })
       .eq('role', 'customer');
 
+    // 4. Detail Bookings View List
+    const detailBookings = filteredBookings.map((b: any) => ({
+      id: b.id,
+      finalPrice: Number(b.final_price),
+      bookingDate: b.booking_date,
+      totalSlots: b.total_slots,
+      status: b.status,
+      customerName: b.profiles?.full_name || 'N/A',
+      customerEmail: b.profiles?.email || 'N/A',
+      courtName: b.courts?.name || 'N/A',
+      sport: b.courts?.sport || 'N/A'
+    }));
+
     return NextResponse.json({
       totalRevenue,
       usersCount: usersCount || 0,
-      bookingsCount: bookings?.length || 0,
+      bookingsCount: filteredBookings.length,
       revenueChart: sortedRevenue,
-      utilization
+      utilization,
+      detailBookings
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Failed to fetch analytics.' }, { status: 500 });

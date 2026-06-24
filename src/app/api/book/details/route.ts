@@ -28,11 +28,16 @@ export async function GET(request: Request) {
     const resolvedDayType = new Date(date).getDay() === 0 || new Date(date).getDay() === 6 ? 'weekend' : 'weekday';
 
     // 2. Fetch all other details in parallel on the server (bypassing RLS)
-    const [opHoursRes, bookingsRes, locksRes, pricingRes, discountsRes] = await Promise.all([
+    const [opHoursRes, holidaysRes, bookingsRes, locksRes, pricingRes, discountsRes] = await Promise.all([
       supabase
         .from('facility_settings')
         .select('value')
         .eq('key', 'operating_hours')
+        .single(),
+      supabase
+        .from('facility_settings')
+        .select('value')
+        .eq('key', 'holiday_closures')
         .single(),
       supabase
         .from('booking_slots')
@@ -57,13 +62,27 @@ export async function GET(request: Request) {
         .eq('is_active', true)
     ]);
 
+    const holidaysList = holidaysRes.data?.value?.holidays || [];
+    let isHoliday = false;
+    let holidayReason = '';
+
+    for (const h of holidaysList) {
+      if (date >= h.startDate && date <= h.endDate) {
+        isHoliday = true;
+        holidayReason = h.reason;
+        break;
+      }
+    }
+
     return NextResponse.json({
       court: courtDetail,
       opHours: opHoursRes.data,
       bookingsData: bookingsRes.data || [],
       locksData: locksRes.data || [],
       pricing: pricingRes.data || [],
-      discounts: discountsRes.data || []
+      discounts: discountsRes.data || [],
+      isHoliday,
+      holidayReason
     });
 
   } catch (err: any) {

@@ -29,6 +29,10 @@ export default function BookCourtPage({ params }: Props) {
   const [slots, setSlots] = useState<{ time: string; display: string; isBooked: boolean; isLocked: boolean; price: number }[]>([]);
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
 
+  // Holiday states
+  const [isHoliday, setIsHoliday] = useState(false);
+  const [holidayReason, setHolidayReason] = useState('');
+
   // Pricing calculator summaries
   const [checkoutPrice, setCheckoutPrice] = useState({ basePrice: 0, discountPercent: 0, discountAmount: 0, finalPrice: 0 });
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -59,6 +63,7 @@ export default function BookCourtPage({ params }: Props) {
     if (!courtId || !selectedDate) return;
     try {
       setLoading(true);
+      setError(null);
       
       const res = await fetch(`/api/book/details?courtId=${courtId}&date=${selectedDate}`);
       if (!res.ok) {
@@ -66,10 +71,18 @@ export default function BookCourtPage({ params }: Props) {
       }
       
       const data = await res.json();
-      const { court: courtDetail, opHours, bookingsData, locksData, pricing, discounts } = data;
+      const { court: courtDetail, opHours, bookingsData, locksData, pricing, discounts, isHoliday: serverIsHoliday, holidayReason: serverHolidayReason } = data;
 
       if (!courtDetail) return;
       setCourt(courtDetail);
+      setIsHoliday(serverIsHoliday || false);
+      setHolidayReason(serverHolidayReason || '');
+
+      if (serverIsHoliday) {
+        setSlots([]);
+        setSelectedSlots([]);
+        return;
+      }
 
       const startHour = opHours?.value ? Number((opHours.value as any).opens_at.split(':')[0]) : 6;
       const endHour = opHours?.value ? Number((opHours.value as any).closes_at.split(':')[0]) : 23;
@@ -148,104 +161,119 @@ export default function BookCourtPage({ params }: Props) {
       finalPrice = basePrice - discountAmount;
     }
 
-    setCheckoutPrice({
-      basePrice,
-      discountPercent,
-      discountAmount,
-      finalPrice
-    });
+    setCheckoutPrice({ basePrice, discountPercent, discountAmount, finalPrice });
   }, [selectedSlots, pricingRules, durationDiscounts, court]);
 
-  const isSlotsContiguous = (slotList: string[]) => {
-    if (slotList.length <= 1) return true;
-    const minutes = slotList.map(s => {
-      const [h, m] = s.split(':').map(Number);
-      return h * 60 + m;
-    }).sort((a, b) => a - b);
-
-    for (let i = 0; i < minutes.length - 1; i++) {
-      if (minutes[i + 1] - minutes[i] !== 30) {
-        return false;
-      }
-    }
-    return true;
-  };
-
-  useEffect(() => {
-    if (selectedSlots.length === 0) {
-      setValidationError(null);
-      return;
-    }
-
-    if (court?.sport === 'cricket' && selectedSlots.length < 2) {
-      setValidationError('Cricket bookings require a minimum of 2 slots (1 hour).');
-      return;
-    }
-
-    if (!isSlotsContiguous(selectedSlots)) {
-      setValidationError('Please select contiguous (consecutive) slots.');
-      return;
-    }
-
-    setValidationError(null);
-  }, [selectedSlots, court]);
-
   const handleToggleSlot = (time: string) => {
-    setSelectedSlots((prev) =>
-      prev.includes(time) ? prev.filter((t) => t !== time) : [...prev, time]
-    );
+    setValidationError(null);
+    setSelectedSlots((prev) => {
+      if (prev.includes(time)) {
+        return prev.filter((t) => t !== time);
+      }
+      
+      const newSelection = [...prev, time].sort();
+      
+      // CRITICAL BUG FIX (Non-consecutive selection validator):
+      // Verify that all selected slots are strictly consecutive
+      if (newSelection.length > 1) {
+        const sortedMinutes = newSelection.map((slot) => {
+          const [h, m] = slot.split(':').map(Number);
+          return h * 60 + m;
+        });
+
+        for (let i = 0; i < sortedMinutes.length - 1; i++) {
+          const diff = sortedMinutes[i + 1] - sortedMinutes[i];
+          if (diff > 30) {
+            setValidationError('Slots selection must be contiguous / consecutive (no gaps allowed).');
+            return prev;
+          }
+        }
+      }
+
+      return newSelection;
+    });
   };
 
-  const handleCheckout = async () => {
+  const handleCreateBooking = async () => {
     try {
       setCheckoutLoading(true);
-      // Initialize slot lock + Razorpay order on backend
+      setError(null);
+      setValidationError(null);
+
+      // Verify slot requirements:
+      // Cricket = Min 1 hour (2 slots), Pickleball = Min 30 mins (1 slot), Max booking = 4 hours (8 slots)
+      const slotCount = selectedSlots.length;
+      if (court?.sport === 'cricket' && slotCount < 2) {
+        setValidationError('Minimum booking duration for Cricket is 1 hour (2 slots).');
+        setCheckoutLoading(false);
+        return;
+      }
+      if (court?.sport === 'pickleball' && slotCount < 1) {
+        setValidationError('Minimum booking duration for Pickleball is 30 minutes (1 slot).');
+        setCheckoutLoading(false);
+        return;
+      }
+      if (slotCount > 8) {
+        setValidationError('Maximum booking duration allowed is 4 hours (8 slots).');
+        setCheckoutLoading(false);
+        return;
+      }
+
       const res = await fetch('/api/bookings/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courtId, date: selectedDate, slots: selectedSlots })
+        body: JSON.stringify({
+          courtId,
+          bookingDate: selectedDate,
+          slots: selectedSlots
+        })
       });
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.error || 'Failed to initialize booking.');
+        throw new Error(errData.error || 'Failed to place booking.');
       }
 
-      const checkoutData = await res.json();
+      const { bookingId, order } = await res.json();
 
-      // Dynamically load Razorpay SDK
+      // Trigger Razorpay payment gateway checkout popup overlay
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
       script.async = true;
       script.onload = () => {
         const rzpOptions = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholder_key',
-          amount: checkoutData.amount,
-          currency: checkoutData.currency,
-          name: 'Shivay Sports Arena',
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+          amount: order.amount,
+          currency: order.currency,
+          name: 'Shivay Sports Club',
           description: `Booking for ${court.name}`,
-          order_id: checkoutData.orderId,
+          order_id: order.id,
           handler: async function (response: any) {
-            // Verify payment on backend
-            const verifyRes = await fetch('/api/payments/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_signature: response.razorpay_signature,
-                courtId,
-                date: selectedDate,
-                slots: selectedSlots
-              })
-            });
+            try {
+              const verifyRes = await fetch('/api/payments/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  bookingId,
+                  razorpayOrderId: response.razorpay_order_id,
+                  razorpayPaymentId: response.razorpay_payment_id,
+                  razorpaySignature: response.razorpay_signature
+                })
+              });
 
-            if (verifyRes.ok) {
-              const verifyData = await verifyRes.json();
-              router.push(`/bookings/${verifyData.id}?status=confirmed`);
-            } else {
+              if (verifyRes.ok) {
+                router.replace(`/bookings/${bookingId}`);
+              } else {
+                const verifyErr = await verifyRes.json();
+                setError(verifyErr.error || 'Payment verification failed.');
+              }
+            } catch (vErr) {
+              console.error('Verification error:', vErr);
               setError('Payment verification failed.');
             }
+          },
+          prefill: {
+            name: 'Customer Details'
           },
           theme: { color: '#34D399' }
         };
@@ -260,6 +288,49 @@ export default function BookCourtPage({ params }: Props) {
     } finally {
       setCheckoutLoading(false);
     }
+  };
+
+  // Group slots by Morning, Noon, Night
+  const morningSlots = slots.filter((s) => {
+    const h = Number(s.time.split(':')[0]);
+    return h >= 6 && h < 12;
+  });
+
+  const noonSlots = slots.filter((s) => {
+    const h = Number(s.time.split(':')[0]);
+    return h >= 12 && h < 18;
+  });
+
+  const nightSlots = slots.filter((s) => {
+    const h = Number(s.time.split(':')[0]);
+    return h >= 18 || h < 6;
+  });
+
+  const renderSlotButton = (s: any) => {
+    const isSelected = selectedSlots.includes(s.time);
+    const disabled = s.isBooked || s.isLocked;
+
+    return (
+      <button
+        key={s.time}
+        disabled={disabled}
+        onClick={() => handleToggleSlot(s.time)}
+        className={`p-3 rounded-xl border text-center flex flex-col justify-center items-center transition-all ${
+          s.isBooked
+            ? 'bg-white/2 border-white/5 text-muted-foreground/40 cursor-not-allowed line-through'
+            : s.isLocked
+            ? 'bg-red-500/5 border-red-500/10 text-red-500/30 cursor-not-allowed'
+            : isSelected
+            ? 'bg-primary/20 border-primary text-primary font-bold'
+            : 'bg-[#111A16] border-[#1E3A2B] text-foreground hover:border-primary/40'
+        }`}
+      >
+        <span className="text-xs font-bold font-mono">{s.display}</span>
+        <span className={`text-[9px] font-mono mt-0.5 ${isSelected ? 'text-primary' : 'text-[#6B8F7E]'}`}>
+          {s.isBooked ? 'Booked' : s.isLocked ? 'Locked' : `₹${s.price}`}
+        </span>
+      </button>
+    );
   };
 
   return (
@@ -315,49 +386,61 @@ export default function BookCourtPage({ params }: Props) {
 
         {/* Slot Selection Grid */}
         <div className="mt-4">
-          <h2 className="text-sm font-bold text-[#A7C4B8] uppercase tracking-wider mb-4">Select Slots</h2>
-          
-          {loading ? (
-            <div className="grid grid-cols-3 gap-2">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="h-14 rounded-xl bg-white/5 border border-white/10 animate-pulse" />
-              ))}
+          {isHoliday ? (
+            <div className="p-8 rounded-2xl bg-red-500/5 border border-red-500/20 text-center space-y-2">
+              <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
+              <h3 className="text-base font-bold text-foreground uppercase">Facility Closed Today</h3>
+              <p className="text-xs text-muted-foreground">{holidayReason || 'Facility is closed for holiday / maintenance.'}</p>
+            </div>
+          ) : loading ? (
+            <div className="space-y-6">
+              <h2 className="text-sm font-bold text-[#A7C4B8] uppercase tracking-wider">Select Slots</h2>
+              <div className="grid grid-cols-3 gap-2">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="h-14 rounded-xl bg-white/5 border border-white/10 animate-pulse" />
+                ))}
+              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {slots.map((s) => {
-                const isSelected = selectedSlots.includes(s.time);
-                const disabled = s.isBooked || s.isLocked;
+            <div className="space-y-6">
+              <h2 className="text-sm font-bold text-[#A7C4B8] uppercase tracking-wider">Select Slots</h2>
 
-                return (
-                  <button
-                    key={s.time}
-                    disabled={disabled}
-                    onClick={() => handleToggleSlot(s.time)}
-                    className={`p-3 rounded-xl border text-center flex flex-col justify-center items-center transition-all ${
-                      s.isBooked
-                        ? 'bg-white/2 border-white/5 text-muted-foreground/40 cursor-not-allowed line-through'
-                        : s.isLocked
-                        ? 'bg-red-500/5 border-red-500/10 text-red-500/30 cursor-not-allowed'
-                        : isSelected
-                        ? 'bg-primary/20 border-primary text-primary font-bold'
-                        : 'bg-[#111A16] border-[#1E3A2B] text-foreground hover:border-primary/40'
-                    }`}
-                  >
-                    <span className="text-xs font-bold font-mono">{s.display}</span>
-                    <span className={`text-[9px] font-mono mt-0.5 ${isSelected ? 'text-primary' : 'text-[#6B8F7E]'}`}>
-                      {s.isBooked ? 'Booked' : s.isLocked ? 'Locked' : `₹${s.price}`}
-                    </span>
-                  </button>
-                );
-              })}
+              {/* Morning slots */}
+              {morningSlots.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-[10px] font-black text-primary uppercase tracking-widest border-b border-primary/20 pb-1">Morning (6 AM - 12 PM)</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {morningSlots.map((s) => renderSlotButton(s))}
+                  </div>
+                </div>
+              )}
+
+              {/* Noon slots */}
+              {noonSlots.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-[10px] font-black text-primary uppercase tracking-widest border-b border-primary/20 pb-1">Noon (12 PM - 6 PM)</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {noonSlots.map((s) => renderSlotButton(s))}
+                  </div>
+                </div>
+              )}
+
+              {/* Night slots */}
+              {nightSlots.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-[10px] font-black text-primary uppercase tracking-widest border-b border-primary/20 pb-1">Night (6 PM onwards)</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {nightSlots.map((s) => renderSlotButton(s))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </main>
 
       {/* Sticky Bottom checkout bar */}
-      {selectedSlots.length > 0 && (
+      {!isHoliday && selectedSlots.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#111A16]/95 border-t border-[#1E3A2B] p-4 flex flex-col gap-3 backdrop-blur-xl md:max-w-4xl md:mx-auto md:rounded-t-2xl">
           {validationError && (
             <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg flex items-center gap-1.5 font-bold">
@@ -368,30 +451,38 @@ export default function BookCourtPage({ params }: Props) {
 
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-[10px] text-muted-foreground uppercase font-semibold">
-                Selected {selectedSlots.length} slot(s) • {selectedSlots.length * 30} mins
-              </span>
+              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                {selectedSlots.length} Slots Selected
+              </p>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-xl font-black text-primary font-mono">₹{checkoutPrice.finalPrice}</span>
-                {checkoutPrice.discountAmount > 0 && (
-                  <span className="text-xs text-[#6B8F7E] line-through font-mono">₹{checkoutPrice.basePrice}</span>
+                {checkoutPrice.discountPercent > 0 && (
+                  <span className="text-xs text-red-400 font-bold font-mono line-through">
+                    ₹{checkoutPrice.basePrice}
+                  </span>
                 )}
               </div>
             </div>
 
             <button
-              onClick={handleCheckout}
-              disabled={checkoutLoading || !!validationError}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-black tracking-wider flex items-center gap-2 hover:bg-[#6EE7B7] transition-all transform active:scale-95 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleCreateBooking}
+              disabled={checkoutLoading}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-black tracking-wider uppercase text-xs flex items-center gap-2 hover:bg-[#6EE7B7] transition-all disabled:opacity-50"
             >
-              <CreditCard className="w-4 h-4" /> {checkoutLoading ? 'Processing...' : 'Pay & Book'}
+              <CreditCard className="w-4 h-4" />
+              {checkoutLoading ? 'Processing...' : 'Pay & Confirm'}
             </button>
+          </div>
+
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground justify-center">
+            <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+            <span>Secure Razorpay Checkout • Instant Slot Lock</span>
           </div>
         </div>
       )}
 
-      <Footer />
       <MobileNav />
+      <Footer />
     </div>
   );
 }
