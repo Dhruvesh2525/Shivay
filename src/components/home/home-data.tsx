@@ -3,7 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Zap, ArrowRight, Megaphone, AlertTriangle, AlertCircle, MessageSquare, ExternalLink, Star } from 'lucide-react';
+import { Zap, ArrowRight, Megaphone, Info, AlertTriangle, MessageSquare, ExternalLink } from 'lucide-react';
+import ThreeDTilt from '@/components/ui/three-d-tilt';
 
 interface Court {
   id: string;
@@ -62,69 +63,98 @@ export default function HomeData({ courts, announcements, reviews }: Props) {
   return (
     <>
       {/* Available Courts */}
-      <section className="w-full max-w-4xl mx-auto px-4 mt-12">
+      <section className="w-full max-w-4xl mx-auto px-margin-mobile md:px-margin-desktop mt-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
         <div className="flex items-center gap-2 mb-6">
-          <Zap className="w-5 h-5 text-primary fill-primary" />
-          <h2 className="text-xl font-bold tracking-tight">Available Now</h2>
+          <Zap className="text-primary w-5 h-5 animate-pulse" />
+          <h2 className="text-xl font-black uppercase tracking-wider font-display text-primary">Available Now</h2>
         </div>
 
         {courts.length === 0 ? (
-          <div className="p-8 text-center bg-white/5 rounded-xl border border-white/10 text-muted-foreground text-xs">
+          <div className="p-8 text-center glass-card rounded-2xl text-muted-foreground text-xs font-mono-custom">
             No courts are active right now. Please check back later.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {courts.map((court) => (
-              <div
-                key={court.id}
-                className="p-6 rounded-xl bg-white/5 border border-white/10 hover:border-primary/50 hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer"
-                onClick={() => router.push(`/book/${court.id}`)}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                      {court.sport}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">NEXT SLOT</span>
-                  </div>
-                  <h3 className="font-bold text-sm text-foreground truncate">{court.name}</h3>
-                  <p className="text-xs text-primary font-mono font-bold mt-1">{nextSlot}</p>
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); router.push(`/book/${court.id}`); }}
-                  className="mt-6 w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-secondary text-primary font-bold hover:bg-primary hover:text-primary-foreground transition-all duration-300 text-xs"
+            {courts.map((court) => {
+              const bgImg = court.sport === 'cricket' 
+                ? '/images/courts/cricket_turf.jpg' 
+                : '/images/courts/pickleball_alpha.jpg';
+
+              return (
+                <ThreeDTilt
+                  key={court.id}
+                  className="min-h-[260px] cursor-pointer"
                 >
-                  Book Court <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
+                  <div
+                    className="w-full h-full p-6 flex flex-col justify-between"
+                    onClick={() => router.push(`/book/${court.id}`)}
+                  >
+                    {/* Card Background Image with Gradient Overlay */}
+                    <div className="absolute inset-0 z-0 pointer-events-none">
+                      <img 
+                        src={bgImg} 
+                        alt={court.name} 
+                        className="w-full h-full object-cover opacity-30 transition-all duration-500" 
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#051424] via-[#051424]/50 to-transparent" />
+                    </div>
+
+                    <div className="relative z-10 flex-grow flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 font-mono-custom">
+                            {court.sport}
+                          </span>
+                          <span className="text-[9px] text-[#8e9379] font-black tracking-widest font-mono-custom">NEXT SLOT</span>
+                        </div>
+                        <h3 className="font-display font-black text-base text-foreground transition-colors truncate">{court.name}</h3>
+                        <p className="text-xs text-primary font-mono-custom font-bold mt-1 bg-primary/5 border border-primary/15 inline-block px-2.5 py-1 rounded-md">{nextSlot}</p>
+                      </div>
+                      
+                      <button
+                        onClick={(e) => { e.stopPropagation(); router.push(`/book/${court.id}`); }}
+                        className="mt-6 w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground font-black font-mono-custom hover:shadow-[0_0_12px_rgba(171, 214, 0, 0.4)] transition-all duration-300 text-[10px] uppercase tracking-wider active:scale-95"
+                      >
+                        Book Court <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </ThreeDTilt>
+              );
+            })}
           </div>
         )}
       </section>
 
       {/* Announcements */}
       {announcements.length > 0 && (
-        <section className="w-full max-w-4xl mx-auto px-4 mt-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Megaphone className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-bold tracking-tight">Announcements</h2>
+        <section className="w-full max-w-4xl mx-auto px-margin-mobile md:px-margin-desktop mt-12 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
+          <div className="flex items-center gap-2 mb-6">
+            <Megaphone className="text-primary w-5 h-5" />
+            <h2 className="text-xl font-black uppercase tracking-wider font-display text-primary">Announcements</h2>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {announcements.map((ann) => {
               const isUrgent = ann.priority === 'urgent' || ann.priority === 'high';
               return (
                 <div
                   key={ann.id}
-                  className={`p-4 rounded-xl border flex gap-3 items-start ${isUrgent ? 'bg-red-500/5 border-red-500/20' : 'bg-white/5 border-white/10'}`}
+                  className={`p-5 rounded-2xl border flex gap-4 items-start transition-all duration-300 ${
+                    isUrgent 
+                      ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/35' 
+                      : 'glass-card hover:border-primary/30'
+                  }`}
                 >
-                  {isUrgent
-                    ? <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                    : <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />}
+                  {isUrgent ? (
+                    <AlertTriangle className="text-red-400 w-5 h-5 shrink-0" />
+                  ) : (
+                    <Info className="text-primary w-5 h-5 shrink-0" />
+                  )}
                   <div>
-                    <h3 className={`font-bold text-sm ${isUrgent ? 'text-red-400' : 'text-foreground'}`}>{ann.title}</h3>
-                    <p className="text-xs text-[#A7C4B8] mt-1 leading-relaxed">{ann.content}</p>
-                    <span className="text-[10px] text-muted-foreground font-mono block mt-2">
-                      {new Date(ann.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    <h3 className={`font-display font-bold text-sm ${isUrgent ? 'text-red-400' : 'text-foreground'}`}>{ann.title}</h3>
+                    <p className="text-xs text-[#8e9379] mt-1 leading-relaxed">{ann.content}</p>
+                    <span className="text-[9px] text-muted-foreground font-mono-custom block mt-2 uppercase tracking-wider">
+                      {new Date(ann.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
                   </div>
                 </div>
@@ -135,40 +165,42 @@ export default function HomeData({ courts, announcements, reviews }: Props) {
       )}
 
       {/* Reviews */}
-      <section className="w-full max-w-4xl mx-auto px-4 mt-8 mb-8">
-        <div className="flex items-center justify-between mb-4">
+      <section className="w-full max-w-4xl mx-auto px-margin-mobile md:px-margin-desktop mt-12 mb-12 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-bold tracking-tight">Player Reviews</h2>
+            <MessageSquare className="text-primary w-5 h-5" />
+            <h2 className="text-xl font-black uppercase tracking-wider font-display text-primary">Player Reviews</h2>
           </div>
           {googleReviewUrl !== '#' && (
             <a href={googleReviewUrl} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline">
-              Google Reviews <ExternalLink className="w-3.5 h-3.5" />
+              className="flex items-center gap-1 font-mono-custom text-[10px] uppercase tracking-wider text-primary font-bold hover:underline transition-all">
+              Google Reviews <ExternalLink className="w-3 h-3" />
             </a>
           )}
         </div>
 
         {reviews.length === 0 ? (
-          <div className="p-6 text-center bg-white/5 rounded-xl border border-white/10 text-muted-foreground text-xs">
+          <div className="p-8 text-center glass-card rounded-2xl text-muted-foreground text-xs font-mono-custom">
             No reviews yet. Be the first to submit feedback after your booking!
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {reviews.map((rev) => (
-              <div key={rev.id} className="p-5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+              <div key={rev.id} className="p-6 rounded-2xl glass-card flex flex-col justify-between hover:border-primary/30 transition-all duration-300">
                 <div>
-                  <div className="flex items-center gap-1 mb-2">
+                  <div className="flex items-center gap-1 mb-3">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className={`w-3.5 h-3.5 ${i < Math.round(rev.overall_rating) ? 'text-yellow-400 fill-yellow-400' : 'text-[#1E3A2B]'}`} />
+                      <span key={i} className={`text-base leading-none select-none ${
+                        i < Math.round(rev.overall_rating) ? 'text-yellow-400' : 'text-[#273647]'
+                      }`}>★</span>
                     ))}
-                    <span className="text-[10px] text-muted-foreground font-mono ml-1">{Number(rev.overall_rating).toFixed(1)}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono-custom ml-1.5">{Number(rev.overall_rating).toFixed(1)}</span>
                   </div>
-                  <p className="text-xs text-[#A7C4B8] italic leading-relaxed">&ldquo;{rev.comment}&rdquo;</p>
+                  <p className="text-xs text-[#8e9379] italic leading-relaxed">&ldquo;{rev.comment}&rdquo;</p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground truncate">{getProfileName(rev.profiles)}</span>
-                  <span className="text-[9px] text-muted-foreground font-mono">
+                <div className="mt-6 pt-4 border-t border-border flex items-center justify-between">
+                  <span className="text-xs font-black text-foreground truncate">{getProfileName(rev.profiles)}</span>
+                  <span className="text-[9px] text-muted-foreground font-mono-custom uppercase tracking-wider">
                     {new Date(rev.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
                   </span>
                 </div>

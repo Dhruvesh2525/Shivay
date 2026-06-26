@@ -80,6 +80,17 @@ export async function PUT(request: Request) {
           reviewed_at: new Date().toISOString()
         })
         .eq('id', applicationId);
+
+      // Log Audit Log
+      await adminSupabase
+        .from('audit_logs')
+        .insert({
+          actor_id: user.id,
+          action: 'organizer_rejected',
+          entity_type: 'organizer_applications',
+          entity_id: applicationId,
+          new_values: { user_id: app.user_id }
+        });
     }
 
     return NextResponse.json({ success: true });

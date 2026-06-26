@@ -21,7 +21,7 @@ export default function MobileNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-[#111A16]/95 backdrop-blur-lg border-t border-[#1E3A2B] px-2 flex items-center justify-around md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-card/95 backdrop-blur-lg border-t border-border px-2 flex items-center justify-around md:hidden">
       {navItems.map((item) => {
         if (item.requireAuth && !user) return null;
 
@@ -33,7 +33,7 @@ export default function MobileNav() {
             key={item.href}
             href={item.href}
             className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors duration-200 ${
-              isActive ? 'text-primary' : 'text-[#6B8F7E] hover:text-[#A7C4B8]'
+              isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <Icon className="w-5 h-5" />
@@ -47,7 +47,7 @@ export default function MobileNav() {
         <Link
           href="/admin"
           className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors duration-200 ${
-            pathname.startsWith('/admin') ? 'text-primary' : 'text-[#6B8F7E] hover:text-[#A7C4B8]'
+            pathname.startsWith('/admin') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <LayoutDashboard className="w-5 h-5" />
@@ -60,7 +60,7 @@ export default function MobileNav() {
         <Link
           href="/login"
           className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors duration-200 ${
-            pathname === '/login' ? 'text-primary' : 'text-[#6B8F7E] hover:text-[#A7C4B8]'
+            pathname === '/login' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <LogIn className="w-5 h-5" />

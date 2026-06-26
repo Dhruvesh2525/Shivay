@@ -1,34 +1,34 @@
 @import "tailwindcss";
 
 :root {
-  /* Midnight Turf Color Theme (Dark Theme by Default) */
-  --background: #0A0F0D;
-  --foreground: #F0FDF4;
+  /* Shivay Deep Slate & Electric Lime Design System */
+  --background: #051424;
+  --foreground: #d4e4fa;
 
-  --card: #111A16;
-  --card-foreground: #F0FDF4;
+  --card: #0d1c2d;
+  --card-foreground: #d4e4fa;
 
-  --popover: #111A16;
-  --popover-foreground: #F0FDF4;
+  --popover: #122131;
+  --popover-foreground: #d4e4fa;
 
-  --primary: #34D399; /* Turf-Green Accent */
-  --primary-foreground: #0A0F0D;
+  --primary: #abd600; /* Electric Lime */
+  --primary-foreground: #051424;
 
-  --secondary: #162019;
-  --secondary-foreground: #A7C4B8;
+  --secondary: #00e476; /* Stadium Green */
+  --secondary-foreground: #051424;
 
-  --muted: #1A2620;
-  --muted-foreground: #6B8F7E;
+  --muted: #1c2b3c;
+  --muted-foreground: #8e9379;
 
-  --accent: #065F46;
-  --accent-foreground: #34D399;
+  --accent: #2c3a4c;
+  --accent-foreground: #abd600;
 
-  --destructive: #EF4444;
-  --destructive-foreground: #F0FDF4;
+  --destructive: #ffb4ab;
+  --destructive-foreground: #690005;
 
-  --border: #1E3A2B;
-  --input: #1A2620;
-  --ring: #34D399;
+  --border: #273647;
+  --input: #122131;
+  --ring: #abd600;
 
   --radius: 0.75rem;
 }
@@ -69,11 +69,48 @@
 
 body {
   background: var(--background);
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(171, 214, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(to right, rgba(255, 255, 255, 0.01) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+  background-size: 40px 40px, 40px 40px, 40px 40px;
   color: var(--foreground);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
   padding: 0;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: 'Hanken Grotesk', sans-serif;
+}
+
+.font-mono-custom {
+  font-family: 'Geist', monospace;
+}
+
+.glass-card {
+  background: rgba(26, 29, 33, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(45, 49, 57, 1);
+}
+
+.electric-glow {
+  box-shadow: 0 0 24px rgba(171, 214, 0, 0.15);
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined' !important;
+  text-transform: none !important;
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -93,7 +130,7 @@ body {
   background: var(--primary);
 }
 
-/* Hero section — CSS fade-in (works without JS, no opacity:0 flash) */
+/* Hero section — CSS fade-in */
 @keyframes heroFadeIn {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -102,4 +139,96 @@ body {
   opacity: 0;
   animation: heroFadeIn 0.6s ease-out forwards;
 }
+
+/* Premium Navigation Link Hover Effects */
+.nav-link-animated {
+  position: relative;
+}
+.nav-link-animated::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--primary);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.nav-link-animated:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+.nav-link-active::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--primary);
+  transform: scaleX(1);
+  box-shadow: 0 0 10px rgba(171, 214, 0, 0.6);
+}
+
+/* Subtle pulse border/glow for cards */
+@keyframes borderPulse {
+  0%, 100% { border-color: rgba(39, 54, 71, 0.35); }
+  50% { border-color: rgba(171, 214, 0, 0.4); }
+}
+.border-pulse-hover:hover {
+  animation: borderPulse 2s infinite ease-in-out;
+}
+
+/* 3D background floating blobs */
+@keyframes floatBlob {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(40px, -60px) scale(1.15); }
+  66% { transform: translate(-30px, 30px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+.animate-blob-1 {
+  animation: floatBlob 15s infinite ease-in-out;
+}
+.animate-blob-2 {
+  animation: floatBlob 20s infinite ease-in-out;
+  animation-delay: 3s;
+}
+.animate-blob-3 {
+  animation: floatBlob 25s infinite ease-in-out;
+  animation-delay: 6s;
+}
+
+/* Premium 3D hover scale & neon shadow utility */
+.hover-3d-shadow {
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.hover-3d-shadow:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(171, 214, 0, 0.12), 0 0 20px rgba(171, 214, 0, 0.05);
+  border-color: rgba(171, 214, 0, 0.4) !important;
+}
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.mesh-grid-3d {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(171, 214, 0, 0.04) 1.5px, transparent 1.5px),
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 65px 65px;
+  transform: perspective(1000px) rotateX(15deg) translateY(-8%) scale(1.05);
+  opacity: 0.9;
+  mask-image: radial-gradient(circle at center, black 30%, transparent 95%);
+}
+
+
+
 

@@ -94,7 +94,7 @@ export default function TournamentDetailPage({ params }: Props) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 flex justify-center items-center text-primary">Loading details...</main>
         <Footer />
@@ -105,7 +105,7 @@ export default function TournamentDetailPage({ params }: Props) {
 
   if (!tourney) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 p-8 text-center text-muted-foreground">Tournament not found.</main>
         <Footer />
@@ -115,7 +115,7 @@ export default function TournamentDetailPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 pb-24 text-sm md:grid md:grid-cols-2 md:gap-8">
@@ -123,7 +123,7 @@ export default function TournamentDetailPage({ params }: Props) {
           {/* Back Link */}
           <button 
             onClick={() => router.push('/tournaments')} 
-            className="flex items-center gap-1.5 text-xs text-[#A7C4B8] mb-6 hover:text-primary transition-colors"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground mb-6 hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Tournaments
           </button>
@@ -133,7 +133,7 @@ export default function TournamentDetailPage({ params }: Props) {
               {tourney.sport}
             </span>
             <h1 className="text-2xl font-black text-foreground uppercase tracking-wide">{tourney.name}</h1>
-            <p className="text-xs text-[#A7C4B8] leading-relaxed">{tourney.description}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">{tourney.description}</p>
 
             <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2 text-xs">
               <div className="flex justify-between">
@@ -152,8 +152,8 @@ export default function TournamentDetailPage({ params }: Props) {
 
             {tourney.rules && (
               <div className="space-y-2">
-                <h3 className="text-xs font-bold text-[#A7C4B8] uppercase tracking-wider">Tournament Rules</h3>
-                <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed p-4 rounded-xl bg-[#111A16] border border-[#1E3A2B]">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tournament Rules</h3>
+                <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed p-4 rounded-xl bg-card border border-border">
                   {tourney.rules}
                 </p>
               </div>
@@ -163,7 +163,7 @@ export default function TournamentDetailPage({ params }: Props) {
 
         {/* Registration Column Panel */}
         <div className="mt-8 md:mt-0">
-          <div className="p-6 rounded-2xl bg-[#111A16] border border-[#1E3A2B] space-y-4 shadow-xl">
+          <div className="p-6 rounded-2xl bg-card border border-border space-y-4 shadow-xl">
             <div className="flex items-center gap-2 mb-2 text-primary">
               <Trophy className="w-5 h-5" />
               <h2 className="text-base font-black uppercase">Roster Registration</h2>
@@ -183,7 +183,7 @@ export default function TournamentDetailPage({ params }: Props) {
                       className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-all ${
                         regType === 'team'
                           ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-[#1A2620] border-[#1E3A2B] text-muted-foreground'
+                          : 'bg-input border-border text-muted-foreground'
                       }`}
                     >
                       Team
@@ -194,7 +194,7 @@ export default function TournamentDetailPage({ params }: Props) {
                       className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-all ${
                         regType === 'individual'
                           ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-[#1A2620] border-[#1E3A2B] text-muted-foreground'
+                          : 'bg-input border-border text-muted-foreground'
                       }`}
                     >
                       Individual
@@ -212,7 +212,7 @@ export default function TournamentDetailPage({ params }: Props) {
                         placeholder="Shivay Strikers"
                         value={teamName}
                         onChange={(e) => setTeamName(e.target.value)}
-                        className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-xs"
+                        className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-xs"
                       />
                     </div>
 
@@ -224,7 +224,7 @@ export default function TournamentDetailPage({ params }: Props) {
                         placeholder="John Doe"
                         value={captainName}
                         onChange={(e) => setCaptainName(e.target.value)}
-                        className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-xs"
+                        className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-xs"
                       />
                     </div>
 
@@ -236,7 +236,7 @@ export default function TournamentDetailPage({ params }: Props) {
                         placeholder="9876543210"
                         value={captainPhone}
                         onChange={(e) => setCaptainPhone(e.target.value)}
-                        className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-xs"
+                        className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-xs"
                       />
                     </div>
 
@@ -247,7 +247,7 @@ export default function TournamentDetailPage({ params }: Props) {
                         placeholder="captain@example.com"
                         value={captainEmail}
                         onChange={(e) => setCaptainEmail(e.target.value)}
-                        className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-xs"
+                        className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-xs"
                       />
                     </div>
 
@@ -258,7 +258,7 @@ export default function TournamentDetailPage({ params }: Props) {
                         value={playerRoster}
                         onChange={(e) => setPlayerRoster(e.target.value)}
                         rows={2}
-                        className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-xs"
+                        className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-xs"
                       />
                     </div>
                   </>
@@ -269,7 +269,7 @@ export default function TournamentDetailPage({ params }: Props) {
                       <select
                         value={skillLevel}
                         onChange={(e) => setSkillLevel(e.target.value as any)}
-                        className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-xs"
+                        className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-xs"
                       >
                         <option value="beginner">Beginner</option>
                         <option value="intermediate">Intermediate / Intermediate-Club</option>

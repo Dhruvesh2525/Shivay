@@ -43,6 +43,13 @@ export default function BookCourtPage({ params }: Props) {
   const [pricingRules, setPricingRules] = useState<any[]>([]);
   const [durationDiscounts, setDurationDiscounts] = useState<any[]>([]);
 
+  // Waitlist States
+  const [showWaitlistModal, setShowWaitlistModal] = useState(false);
+  const [waitlistSlot, setWaitlistSlot] = useState<string | null>(null);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistSuccess, setWaitlistSuccess] = useState(false);
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
+
   useEffect(() => {
     // Generate dates lists for the next 14 days
     const list = [];
@@ -194,6 +201,48 @@ export default function BookCourtPage({ params }: Props) {
     });
   };
 
+  const handleJoinWaitlist = async () => {
+    if (!waitlistSlot || !courtId) return;
+    setWaitlistLoading(true);
+    setWaitlistError(null);
+    setWaitlistSuccess(false);
+
+    try {
+      const [h, m] = waitlistSlot.split(':').map(Number);
+      const endMinutes = h * 60 + m + 30;
+      const endH = Math.floor(endMinutes / 60);
+      const endM = endMinutes % 60;
+      const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
+
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courtId,
+          date: selectedDate,
+          startTime: waitlistSlot,
+          endTime: endTime
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to join waitlist.');
+      }
+
+      setWaitlistSuccess(true);
+      setTimeout(() => {
+        setShowWaitlistModal(false);
+        setWaitlistSuccess(false);
+        setWaitlistSlot(null);
+      }, 1500);
+    } catch (err: any) {
+      setWaitlistError(err.message || 'Failed to join waitlist.');
+    } finally {
+      setWaitlistLoading(false);
+    }
+  };
+
   const handleCreateBooking = async () => {
     try {
       setCheckoutLoading(true);
@@ -234,7 +283,7 @@ export default function BookCourtPage({ params }: Props) {
         throw new Error(errData.error || 'Failed to place booking.');
       }
 
-      const { bookingId, order } = await res.json();
+      const { order } = await res.json();
 
       // Trigger Razorpay payment gateway checkout popup overlay
       const script = document.createElement('script');
@@ -254,7 +303,9 @@ export default function BookCourtPage({ params }: Props) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  bookingId,
+                  courtId,
+                  date: selectedDate,
+                  slots: selectedSlots,
                   razorpayOrderId: response.razorpay_order_id,
                   razorpayPaymentId: response.razorpay_payment_id,
                   razorpaySignature: response.razorpay_signature
@@ -262,7 +313,9 @@ export default function BookCourtPage({ params }: Props) {
               });
 
               if (verifyRes.ok) {
-                router.replace(`/bookings/${bookingId}`);
+                const verifyData = await verifyRes.json();
+                // Use the booking id returned by the server (created during verify)
+                router.replace(`/bookings/${verifyData.id}`);
               } else {
                 const verifyErr = await verifyRes.json();
                 setError(verifyErr.error || 'Payment verification failed.');
@@ -308,33 +361,41 @@ export default function BookCourtPage({ params }: Props) {
 
   const renderSlotButton = (s: any) => {
     const isSelected = selectedSlots.includes(s.time);
-    const disabled = s.isBooked || s.isLocked;
+    const isUnavailable = s.isBooked || s.isLocked;
 
     return (
       <button
         key={s.time}
-        disabled={disabled}
-        onClick={() => handleToggleSlot(s.time)}
+        onClick={() => {
+          if (isUnavailable) {
+            setWaitlistSlot(s.time);
+            setWaitlistSuccess(false);
+            setWaitlistError(null);
+            setShowWaitlistModal(true);
+          } else {
+            handleToggleSlot(s.time);
+          }
+        }}
         className={`p-3 rounded-xl border text-center flex flex-col justify-center items-center transition-all ${
           s.isBooked
-            ? 'bg-white/2 border-white/5 text-muted-foreground/40 cursor-not-allowed line-through'
+            ? 'bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10 hover:border-primary/20 cursor-pointer'
             : s.isLocked
-            ? 'bg-red-500/5 border-red-500/10 text-red-500/30 cursor-not-allowed'
+            ? 'bg-red-500/5 border-red-500/15 text-red-400 hover:bg-red-500/10 cursor-pointer'
             : isSelected
             ? 'bg-primary/20 border-primary text-primary font-bold'
-            : 'bg-[#111A16] border-[#1E3A2B] text-foreground hover:border-primary/40'
+            : 'bg-card border-border text-foreground hover:border-primary/40'
         }`}
       >
         <span className="text-xs font-bold font-mono">{s.display}</span>
-        <span className={`text-[9px] font-mono mt-0.5 ${isSelected ? 'text-primary' : 'text-[#6B8F7E]'}`}>
-          {s.isBooked ? 'Booked' : s.isLocked ? 'Locked' : `₹${s.price}`}
+        <span className={`text-[9px] font-mono mt-0.5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
+          {s.isBooked ? 'Booked (Waitlist)' : s.isLocked ? 'Locked (Waitlist)' : `₹${s.price}`}
         </span>
       </button>
     );
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 pb-32">
@@ -358,7 +419,7 @@ export default function BookCourtPage({ params }: Props) {
                 {court.sport}
               </span>
               <h1 className="text-2xl font-black text-foreground mt-1 uppercase">{court.name}</h1>
-              <p className="text-xs text-[#A7C4B8]">{court.description}</p>
+              <p className="text-xs text-muted-foreground">{court.description}</p>
             </div>
           </div>
         )}
@@ -374,7 +435,7 @@ export default function BookCourtPage({ params }: Props) {
                 className={`snap-center flex flex-col items-center justify-center min-w-[56px] py-3 rounded-2xl border transition-all duration-200 ${
                   isSelected
                     ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-[#111A16] border-[#1E3A2B] text-[#A7C4B8]'
+                    : 'bg-card border-border text-muted-foreground'
                 }`}
               >
                 <span className="text-[10px] uppercase font-bold tracking-wider">{d.dayLabel}</span>
@@ -394,7 +455,7 @@ export default function BookCourtPage({ params }: Props) {
             </div>
           ) : loading ? (
             <div className="space-y-6">
-              <h2 className="text-sm font-bold text-[#A7C4B8] uppercase tracking-wider">Select Slots</h2>
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Select Slots</h2>
               <div className="grid grid-cols-3 gap-2">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
                   <div key={i} className="h-14 rounded-xl bg-white/5 border border-white/10 animate-pulse" />
@@ -403,7 +464,7 @@ export default function BookCourtPage({ params }: Props) {
             </div>
           ) : (
             <div className="space-y-6">
-              <h2 className="text-sm font-bold text-[#A7C4B8] uppercase tracking-wider">Select Slots</h2>
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Select Slots</h2>
 
               {/* Morning slots */}
               {morningSlots.length > 0 && (
@@ -441,7 +502,7 @@ export default function BookCourtPage({ params }: Props) {
 
       {/* Sticky Bottom checkout bar */}
       {!isHoliday && selectedSlots.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#111A16]/95 border-t border-[#1E3A2B] p-4 flex flex-col gap-3 backdrop-blur-xl md:max-w-4xl md:mx-auto md:rounded-t-2xl">
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 border-t border-border p-4 flex flex-col gap-3 backdrop-blur-xl md:max-w-4xl md:mx-auto md:rounded-t-2xl">
           {validationError && (
             <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg flex items-center gap-1.5 font-bold">
               <AlertTriangle className="w-3.5 h-3.5" />
@@ -467,7 +528,7 @@ export default function BookCourtPage({ params }: Props) {
             <button
               onClick={handleCreateBooking}
               disabled={checkoutLoading}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-black tracking-wider uppercase text-xs flex items-center gap-2 hover:bg-[#6EE7B7] transition-all disabled:opacity-50"
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-black tracking-wider uppercase text-xs flex items-center gap-2 hover:bg-primary/95 transition-all disabled:opacity-50"
             >
               <CreditCard className="w-4 h-4" />
               {checkoutLoading ? 'Processing...' : 'Pay & Confirm'}
@@ -477,6 +538,60 @@ export default function BookCourtPage({ params }: Props) {
           <div className="flex items-center gap-1 text-[10px] text-muted-foreground justify-center">
             <ShieldCheck className="w-3.5 h-3.5 text-primary" />
             <span>Secure Razorpay Checkout • Instant Slot Lock</span>
+          </div>
+        </div>
+      )}
+
+      {/* Waitlist Join Modal */}
+      {showWaitlistModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm p-6 rounded-2xl bg-card border border-border shadow-2xl space-y-4">
+            <div className="flex items-center gap-2 text-primary border-b border-border pb-3">
+              <Calendar className="w-5 h-5" />
+              <h3 className="font-black text-sm uppercase">Join Slot Waitlist</h3>
+            </div>
+
+            {waitlistError && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>{waitlistError}</span>
+              </div>
+            )}
+
+            {waitlistSuccess ? (
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center text-emerald-400 text-xs font-bold">
+                Success! You are now on the waitlist for this slot. We will notify you if it gets freed.
+              </div>
+            ) : (
+              <div className="space-y-4 text-xs text-[#b9cbb9] leading-relaxed">
+                <p>
+                  You are joining the waitlist for the following slot:
+                </p>
+                <div className="bg-input p-3 rounded-lg border border-border/40 font-mono space-y-1">
+                  <div className="flex justify-between"><span>Court:</span><span className="text-foreground font-bold">{court?.name}</span></div>
+                  <div className="flex justify-between"><span>Date:</span><span className="text-foreground font-bold">{selectedDate}</span></div>
+                  <div className="flex justify-between"><span>Slot:</span><span className="text-primary font-bold">{waitlistSlot}</span></div>
+                </div>
+
+                <div className="flex gap-2 justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowWaitlistModal(false)}
+                    className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-xs font-bold text-[#b9cbb9]"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleJoinWaitlist}
+                    disabled={waitlistLoading}
+                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-black tracking-wide uppercase disabled:opacity-50"
+                  >
+                    {waitlistLoading ? 'Joining...' : 'Confirm'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

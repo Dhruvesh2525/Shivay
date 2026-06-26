@@ -1,7 +1,9 @@
 // src/app/api/reviews/route.ts
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { enforceRateLimit } from '@/lib/rate-limit';
+import { resolveAuth } from '@/lib/auth-helpers';
+import sharp from 'sharp';
 
 export async function POST(request: Request) {
   try {
@@ -11,12 +13,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing rating details.' }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const authCtx = await resolveAuth();
+    if (authCtx instanceof NextResponse) return authCtx;
+    const { user, supabase } = authCtx;
     const adminSupabase = createAdminClient();
 
-    // Verify authorized user session
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    // Rate limit review submissions (SRD)
+    const limited = enforceRateLimit(request, {
+      key: user.id,
+      action: 'review',
+      limit: 5,
+      windowMs: 60 * 60 * 1000, // 5 reviews per hour
+    });
+    if (limited) return limited;
 
     // Verify customer completed booking status (to guarantee reviews are from verified users only)
     const { data: booking } = await supabase
@@ -55,15 +64,69 @@ export async function POST(request: Request) {
 
     if (reviewError) throw reviewError;
 
-    // Handle review photos insertion (up to 3 photos limit)
+    // Handle review photos insertion (up to 3 photos limit) with MIME/size validation & compression
     if (photos && Array.isArray(photos) && photos.length > 0) {
-      const photoRows = photos.slice(0, 3).map((url, idx) => ({
-        review_id: review.id,
-        image_url: url,
-        display_order: idx
-      }));
+      // Ensure reviews bucket exists
+      await adminSupabase.storage.createBucket('reviews', { public: true });
 
-      await adminSupabase.from('review_photos').insert(photoRows);
+      const uploadedUrls: string[] = [];
+
+      for (let idx = 0; idx < Math.min(photos.length, 3); idx++) {
+        const photoStr = photos[idx];
+        if (typeof photoStr !== 'string' || !photoStr.startsWith('data:image/')) {
+          continue;
+        }
+
+        // Validate MIME type
+        const mimeMatch = photoStr.match(/^data:(image\/jpeg|image\/png|image\/webp);base64,/);
+        if (!mimeMatch) {
+          throw new Error('Unsupported image format. Only JPEG, PNG, and WebP are allowed.');
+        }
+        const mimeType = mimeMatch[1];
+
+        // Parse base64
+        const base64Data = photoStr.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // Validate size (< 2MB)
+        if (buffer.length > 2 * 1024 * 1024) {
+          throw new Error('Image file size must be less than 2MB.');
+        }
+
+        // Compress image server-side
+        const compressedBuffer = await sharp(buffer)
+          .resize({ width: 800, withoutEnlargement: true })
+          .jpeg({ quality: 80 })
+          .toBuffer();
+
+        // Upload to reviews bucket
+        const fileName = `${review.id}_${Date.now()}_${idx}.jpg`;
+        const { error: uploadError } = await adminSupabase.storage
+          .from('reviews')
+          .upload(fileName, compressedBuffer, {
+            contentType: 'image/jpeg',
+            upsert: true
+          });
+
+        if (uploadError) {
+          throw new Error(`Failed to upload photo: ${uploadError.message}`);
+        }
+
+        const { data: { publicUrl } } = adminSupabase.storage
+          .from('reviews')
+          .getPublicUrl(fileName);
+
+        uploadedUrls.push(publicUrl);
+      }
+
+      if (uploadedUrls.length > 0) {
+        const photoRows = uploadedUrls.map((url, idx) => ({
+          review_id: review.id,
+          image_url: url,
+          display_order: idx
+        }));
+        await adminSupabase.from('review_photos').insert(photoRows);
+      }
     }
 
     return NextResponse.json({ success: true, reviewId: review.id });

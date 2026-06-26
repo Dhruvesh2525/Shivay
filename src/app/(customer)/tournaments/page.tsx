@@ -35,7 +35,7 @@ export default async function TournamentsListPage() {
   const tournaments = await getTournaments();
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <TournamentsList tournaments={tournaments} />
       <Footer />

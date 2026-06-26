@@ -195,7 +195,7 @@ export default function AdminCourts() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-primary">Courts & Settings</h1>
-        <p className="text-[#A7C4B8] text-sm mt-1">Configure your playing courts and facility rules.</p>
+        <p className="text-muted-foreground text-sm mt-1">Configure your playing courts and facility rules.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -225,7 +225,7 @@ export default function AdminCourts() {
                 type="time"
                 value={opensAt}
                 onChange={(e) => setOpensAt(e.target.value)}
-                className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-sm"
+                className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-sm"
               />
             </div>
             <div>
@@ -234,7 +234,7 @@ export default function AdminCourts() {
                 type="time"
                 value={closesAt}
                 onChange={(e) => setClosesAt(e.target.value)}
-                className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-sm"
+                className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-sm"
               />
             </div>
           </div>
@@ -270,7 +270,7 @@ export default function AdminCourts() {
                   required
                   value={holidayStart}
                   onChange={(e) => setHolidayStart(e.target.value)}
-                  className="w-full p-2.5 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                  className="w-full p-2.5 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                 />
               </div>
               <div>
@@ -280,7 +280,7 @@ export default function AdminCourts() {
                   required
                   value={holidayEnd}
                   onChange={(e) => setHolidayEnd(e.target.value)}
-                  className="w-full p-2.5 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                  className="w-full p-2.5 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                 />
               </div>
             </div>
@@ -293,7 +293,7 @@ export default function AdminCourts() {
                 placeholder="e.g. Diwali Festival Maintenance"
                 value={holidayReason}
                 onChange={(e) => setHolidayReason(e.target.value)}
-                className="w-full p-2.5 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-xs"
+                className="w-full p-2.5 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-xs"
               />
             </div>
 
@@ -312,7 +312,7 @@ export default function AdminCourts() {
               <p className="text-xs text-muted-foreground">No holiday closures configured.</p>
             ) : (
               holidays.map((h, i) => (
-                <div key={i} className="p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] flex items-center justify-between gap-4 text-xs">
+                <div key={i} className="p-3 rounded-lg bg-input border border-border flex items-center justify-between gap-4 text-xs">
                   <div>
                     <span className="font-bold text-foreground block">{h.reason}</span>
                     <span className="text-muted-foreground text-[10px] font-mono">
@@ -356,7 +356,7 @@ export default function AdminCourts() {
                   placeholder="Cricket Net A"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-sm"
+                  className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-sm"
                 />
               </div>
 
@@ -365,7 +365,7 @@ export default function AdminCourts() {
                 <select
                   value={sport}
                   onChange={(e) => setSport(e.target.value as any)}
-                  className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-sm"
+                  className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-sm"
                 >
                   <option value="cricket">Cricket</option>
                   <option value="pickleball">Pickleball</option>
@@ -380,7 +380,7 @@ export default function AdminCourts() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Details about court dimensions, flooring, accessories..."
                 rows={2}
-                className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-sm"
+                className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-sm"
               />
             </div>
 
@@ -388,7 +388,7 @@ export default function AdminCourts() {
               <button
                 type="button"
                 onClick={() => setIsAdding(false)}
-                className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-xs font-bold text-[#A7C4B8]"
+                className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-xs font-bold text-muted-foreground"
               >
                 Cancel
               </button>

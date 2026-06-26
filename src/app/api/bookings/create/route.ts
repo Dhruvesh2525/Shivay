@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { calculateBookingPrice } from '@/lib/pricing';
 import Razorpay from 'razorpay';
 
 export async function POST(request: Request) {
@@ -10,6 +11,19 @@ export async function POST(request: Request) {
 
     if (!courtId || !date || !slots || !Array.isArray(slots) || slots.length === 0) {
       return NextResponse.json({ error: 'Missing required parameters.' }, { status: 400 });
+    }
+
+    // Enforce booking window: today through 3 months in the future (PRD rule).
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const bookingDate = new Date(`${date}T00:00:00`);
+    const maxDate = new Date();
+    maxDate.setMonth(maxDate.getMonth() + 3);
+    if (bookingDate < today) {
+      return NextResponse.json({ error: 'Cannot book a date in the past.' }, { status: 400 });
+    }
+    if (bookingDate > maxDate) {
+      return NextResponse.json({ error: 'Bookings can only be made up to 3 months in advance.' }, { status: 400 });
     }
 
     const supabase = await createClient();
@@ -124,20 +138,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'One or more selected slots are currently locked by another user. Try again in 5 minutes.' }, { status: 409 });
     }
 
-    // 3. Server-side Pricing Calculation
-    const protocol = request.headers.get('x-forwarded-proto') || 'http';
-    const host = request.headers.get('host');
-    const pricingRes = await fetch(`${protocol}://${host}/api/pricing/calculate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ courtId, date, slots })
-    });
-
-    if (!pricingRes.ok) {
+    // 3. Server-side Pricing Calculation (shared helper — never trusts client amounts)
+    let basePrice: number;
+    let discountAmount: number;
+    let finalPrice: number;
+    let breakdown: any[];
+    try {
+      const pricing = await calculateBookingPrice(adminSupabase as any, courtId, date, slots);
+      basePrice = pricing.basePrice;
+      discountAmount = pricing.discountAmount;
+      finalPrice = pricing.finalPrice;
+      breakdown = pricing.breakdown;
+    } catch {
       return NextResponse.json({ error: 'Failed to calculate price.' }, { status: 500 });
     }
-
-    const { basePrice, discountAmount, finalPrice, breakdown } = await pricingRes.json();
 
     // 4. Lock Selected Slots (5-Minute TTL)
     const lockedUntil = new Date(Date.now() + 5 * 60000).toISOString();
@@ -158,30 +172,51 @@ export async function POST(request: Request) {
     }
 
     // 5. Initialize Razorpay Order
-    // Setup Razorpay instance (using placeholder keys)
-    const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder_key',
-      key_secret: process.env.RAZORPAY_KEY_SECRET || 'rzp_test_placeholder_secret',
-    });
+    // Fail loud if keys are missing rather than silently using placeholder keys.
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keyId || !keySecret) {
+      console.error('Razorpay keys are not configured (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET).');
+      return NextResponse.json({ error: 'Payment gateway is not configured.' }, { status: 500 });
+    }
+
+    const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
 
     // Create Razorpay Order options
     const options = {
       amount: Math.round(finalPrice * 100), // Razorpay accepts in Paisa (INR * 100)
       currency: 'INR',
       receipt: `receipt_init_${Date.now()}`,
+      notes: {
+        userId: user.id,
+        courtId: courtId,
+        date: date,
+        slots: slots.join(',')
+      }
     };
 
     const order = await razorpay.orders.create(options);
 
+    // Return both the Razorpay order object and the context the client must
+    // echo back to /api/payments/verify so verification can recompute the price
+    // server-side without trusting any amount from the browser.
     return NextResponse.json({
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
+      bookingId: order.id, // temporary handle to correlate client + verify (order id)
+      order: {
+        id: order.id,
+        amount: order.amount,
+        amount_paid: order.amount_paid,
+        amount_due: order.amount_due,
+        currency: order.currency,
+      },
       basePrice,
       discountAmount,
       finalPrice,
       breakdown,
-      lockedUntil
+      lockedUntil,
+      courtId,
+      date,
+      slots
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Booking checkout initialization failed.' }, { status: 500 });

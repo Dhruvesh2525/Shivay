@@ -11,10 +11,10 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
-      <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-8 pb-24 text-sm leading-relaxed text-[#A7C4B8] space-y-6">
+      <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-8 pb-24 text-sm leading-relaxed text-muted-foreground space-y-6">
         <h1 id="terms-title" className="text-3xl font-black text-primary uppercase tracking-wide">
           Terms & Conditions
         </h1>

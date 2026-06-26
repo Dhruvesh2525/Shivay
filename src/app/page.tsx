@@ -51,7 +51,7 @@ export default async function Home() {
   const { courts, announcements, reviews } = await getHomeData();
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
       <main className="flex-1 pb-16 md:pb-0">

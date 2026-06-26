@@ -183,7 +183,7 @@ export default function AdminTournaments() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">Tournaments</h1>
-          <p className="text-[#A7C4B8] text-sm mt-1">Manage league tournaments, review registration rosters, and approve schedules.</p>
+          <p className="text-muted-foreground text-sm mt-1">Manage league tournaments, review registration rosters, and approve schedules.</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
@@ -201,7 +201,7 @@ export default function AdminTournaments() {
       )}
 
       {loading ? (
-        <div className="p-8 text-center text-[#A7C4B8]">Loading tournaments...</div>
+        <div className="p-8 text-center text-muted-foreground">Loading tournaments...</div>
       ) : tournaments.length === 0 ? (
         <div className="p-12 text-center bg-white/5 rounded-2xl border border-white/10 text-muted-foreground text-xs">
           No tournaments created yet.
@@ -211,7 +211,7 @@ export default function AdminTournaments() {
           {tournaments.map((t) => (
             <div 
               key={t.id} 
-              className="p-5 rounded-2xl bg-[#111A16] border border-[#1E3A2B] flex flex-col md:flex-row md:items-center justify-between gap-6"
+              className="p-5 rounded-2xl bg-card border border-border flex flex-col md:flex-row md:items-center justify-between gap-6"
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -225,7 +225,7 @@ export default function AdminTournaments() {
                 <h3 className="font-bold text-base text-foreground">
                   {t.name}
                 </h3>
-                <p className="text-xs text-[#A7C4B8] flex items-center gap-1.5">
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-primary" />
                   {t.start_date} to {t.end_date} (Deadline: {t.registration_deadline})
                 </p>
@@ -280,8 +280,8 @@ export default function AdminTournaments() {
       {/* Create Tournament Form Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-lg p-6 rounded-2xl bg-[#111A16] border border-[#1E3A2B] shadow-2xl space-y-4 my-8">
-            <div className="flex items-center gap-2 text-primary border-b border-[#1E3A2B] pb-3">
+          <div className="w-full max-w-lg p-6 rounded-2xl bg-card border border-border shadow-2xl space-y-4 my-8">
+            <div className="flex items-center gap-2 text-primary border-b border-border pb-3">
               <Trophy className="w-5 h-5" />
               <h3 className="font-black text-sm uppercase">Create Tournament</h3>
             </div>
@@ -296,7 +296,7 @@ export default function AdminTournaments() {
                     placeholder="e.g. Shivay Monsoon Cup"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full p-2.5 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                    className="w-full p-2.5 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -304,7 +304,7 @@ export default function AdminTournaments() {
                   <select
                     value={sport}
                     onChange={(e) => setSport(e.target.value as any)}
-                    className="w-full p-2.5 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                    className="w-full p-2.5 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                   >
                     <option value="cricket">Cricket</option>
                     <option value="pickleball">Pickleball</option>
@@ -319,7 +319,7 @@ export default function AdminTournaments() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
-                  className="w-full p-2.5 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                  className="w-full p-2.5 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -331,7 +331,7 @@ export default function AdminTournaments() {
                     required
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                    className="w-full p-2 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -341,7 +341,7 @@ export default function AdminTournaments() {
                     required
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                    className="w-full p-2 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -351,7 +351,7 @@ export default function AdminTournaments() {
                     required
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                    className="w-full p-2 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -365,7 +365,7 @@ export default function AdminTournaments() {
                     placeholder="e.g. league, knockout"
                     value={format}
                     onChange={(e) => setFormat(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                    className="w-full p-2 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -375,7 +375,7 @@ export default function AdminTournaments() {
                     required
                     value={entryFee}
                     onChange={(e) => setEntryFee(Number(e.target.value))}
-                    className="w-full p-2 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                    className="w-full p-2 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -385,7 +385,7 @@ export default function AdminTournaments() {
                     required
                     value={maxTeams}
                     onChange={(e) => setMaxTeams(Number(e.target.value))}
-                    className="w-full p-2 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                    className="w-full p-2 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -397,7 +397,7 @@ export default function AdminTournaments() {
                     type="number"
                     value={minTeamSize}
                     onChange={(e) => setMinTeamSize(Number(e.target.value))}
-                    className="w-full p-2 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                    className="w-full p-2 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -406,7 +406,7 @@ export default function AdminTournaments() {
                     type="number"
                     value={maxTeamSize}
                     onChange={(e) => setMaxTeamSize(Number(e.target.value))}
-                    className="w-full p-2 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                    className="w-full p-2 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -416,7 +416,7 @@ export default function AdminTournaments() {
                     placeholder="e.g. ₹50,000 cash"
                     value={prizePool}
                     onChange={(e) => setPrizePool(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                    className="w-full p-2 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -427,7 +427,7 @@ export default function AdminTournaments() {
                   id="allowIndividual"
                   checked={allowIndividual}
                   onChange={(e) => setAllowIndividual(e.target.checked)}
-                  className="rounded border-[#1E3A2B] text-primary focus:ring-primary h-4 w-4 bg-[#1A2620]"
+                  className="rounded border-border text-primary focus:ring-primary h-4 w-4 bg-input"
                 />
                 <label htmlFor="allowIndividual" className="text-muted-foreground font-bold uppercase cursor-pointer selection:bg-transparent">Allow Individual Registration</label>
               </div>
@@ -439,15 +439,15 @@ export default function AdminTournaments() {
                   value={rules}
                   onChange={(e) => setRules(e.target.value)}
                   rows={2}
-                  className="w-full p-2 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary"
+                  className="w-full p-2 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary"
                 />
               </div>
 
-              <div className="flex gap-2.5 justify-end pt-3 border-t border-[#1E3A2B]">
+              <div className="flex gap-2.5 justify-end pt-3 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-xs font-bold text-[#A7C4B8]"
+                  className="px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-xs font-bold text-muted-foreground"
                 >
                   Cancel
                 </button>

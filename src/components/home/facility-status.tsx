@@ -18,21 +18,21 @@ export default function FacilityStatus() {
   }, []);
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 mt-6">
-      <div className="flex items-center justify-between p-4 rounded-xl bg-[#111A16] border border-[#1E3A2B]">
+    <div className="w-full max-w-4xl mx-auto px-margin-mobile md:px-margin-desktop mt-6 animate-in fade-in duration-500">
+      <div className="flex items-center justify-between p-4 rounded-2xl glass-card">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-[#1A2620]">
-            <Clock className="w-5 h-5 text-primary" />
+          <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center">
+            <Clock className="w-4.5 h-4.5" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-[#A7C4B8] uppercase tracking-wider">Facility Hours</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Open 24 hours · 7 days a week · Current time: {timeString}</p>
+            <h3 className="text-[10px] font-black text-primary uppercase tracking-wider font-mono-custom">Facility Hours</h3>
+            <p className="text-xs text-[#8e9379] mt-0.5 font-mono-custom">Open 24 hours · 7 days a week · Local Time: {timeString}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
-          <span className="text-xs font-bold tracking-wide uppercase text-primary">Open 24/7</span>
+        <div className="flex items-center gap-2 bg-secondary/10 border border-secondary/20 px-3 py-1.5 rounded-xl">
+          <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
+          <span className="text-[9px] font-black tracking-wider uppercase text-secondary font-mono-custom">Open 24/7</span>
         </div>
       </div>
     </div>

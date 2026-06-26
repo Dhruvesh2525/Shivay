@@ -101,7 +101,7 @@ function RegisterForm() {
             placeholder="John Doe"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm"
+            className="w-full p-3 rounded-lg bg-input border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm"
           />
         </div>
 
@@ -111,7 +111,7 @@ function RegisterForm() {
             type="email"
             disabled
             value={email}
-            className="w-full p-3 rounded-lg bg-[#111A16] border border-[#1E3A2B] text-muted-foreground cursor-not-allowed text-sm"
+            className="w-full p-3 rounded-lg bg-card border border-border text-muted-foreground cursor-not-allowed text-sm"
           />
         </div>
 
@@ -124,7 +124,7 @@ function RegisterForm() {
             placeholder="9876543210"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm"
+            className="w-full p-3 rounded-lg bg-input border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm"
           />
         </div>
 
@@ -135,7 +135,7 @@ function RegisterForm() {
             required
             value={birthDate}
             onChange={(e) => setBirthDate(e.target.value)}
-            className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm"
+            className="w-full p-3 rounded-lg bg-input border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors text-sm"
           />
         </div>
 
@@ -153,7 +153,7 @@ function RegisterForm() {
 
 export default function Register() {
   return (
-    <main className="flex-1 flex flex-col justify-center items-center p-4 bg-[#0A0F0D]">
+    <main className="flex-1 flex flex-col justify-center items-center p-4 bg-background">
       <Suspense fallback={<div className="text-primary">Loading parameters...</div>}>
         <RegisterForm />
       </Suspense>

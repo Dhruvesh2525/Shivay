@@ -33,6 +33,12 @@ export default function BookingDetailPage({ params }: Props) {
   const [reviewSuccess, setReviewSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Refund request states — declared BEFORE any early returns to respect the
+  // Rules of Hooks (hooks must run in the same order on every render).
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
+
   useEffect(() => {
     async function fetchBookingDetail() {
       try {
@@ -72,7 +78,7 @@ export default function BookingDetailPage({ params }: Props) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 flex justify-center items-center text-primary">Loading details...</main>
         <Footer />
@@ -83,7 +89,7 @@ export default function BookingDetailPage({ params }: Props) {
 
   if (!booking) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+      <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-1 p-8 text-center text-muted-foreground">Booking not found.</main>
         <Footer />
@@ -93,11 +99,6 @@ export default function BookingDetailPage({ params }: Props) {
   }
 
   const isConfirmed = booking.status === 'confirmed';
-
-  // Refund request states
-  const [showRefundModal, setShowRefundModal] = useState(false);
-  const [refundReason, setRefundReason] = useState('');
-  const [refundSubmitting, setRefundSubmitting] = useState(false);
 
   const handleRefundSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,14 +182,14 @@ export default function BookingDetailPage({ params }: Props) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
       <main className="flex-1 max-w-md w-full mx-auto px-4 py-6 pb-24 text-sm">
         {/* Back Link */}
         <button 
           onClick={() => router.push('/bookings')} 
-          className="flex items-center gap-1.5 text-xs text-[#A7C4B8] mb-6 hover:text-primary transition-colors"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground mb-6 hover:text-primary transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Bookings
         </button>
@@ -205,8 +206,8 @@ export default function BookingDetailPage({ params }: Props) {
         )}
 
         {/* Core Receipt Card */}
-        <div className="p-6 rounded-2xl bg-[#111A16] border border-[#1E3A2B] space-y-6">
-          <div className="border-b border-[#1E3A2B] pb-4 flex justify-between items-center">
+        <div className="p-6 rounded-2xl bg-card border border-border space-y-6">
+          <div className="border-b border-border pb-4 flex justify-between items-center">
             <div>
               <span className="text-[10px] text-muted-foreground uppercase font-semibold">REFERENCE ID</span>
               <p className="text-sm font-black font-mono mt-0.5 text-primary">{booking.booking_id}</p>
@@ -218,23 +219,23 @@ export default function BookingDetailPage({ params }: Props) {
 
           {/* Slots breakdown */}
           <div className="space-y-3">
-            <h3 className="text-xs font-bold text-[#A7C4B8] uppercase tracking-wider">Venue details</h3>
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Venue details</h3>
             <div className="flex items-start gap-3">
-              <div className="p-2 rounded-lg bg-[#1A2620] text-primary mt-0.5">
+              <div className="p-2 rounded-lg bg-input text-primary mt-0.5">
                 <Calendar className="w-4.5 h-4.5" />
               </div>
               <div>
                 <h4 className="font-bold text-foreground">{booking.courts?.name}</h4>
-                <p className="text-xs text-[#A7C4B8] mt-0.5">{booking.booking_date}</p>
-                <p className="text-xs text-[#A7C4B8] mt-0.5 font-mono">{booking.start_time.slice(0, 5)} - {booking.end_time.slice(0, 5)} ({booking.total_slots * 30} mins)</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{booking.booking_date}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 font-mono">{booking.start_time.slice(0, 5)} - {booking.end_time.slice(0, 5)} ({booking.total_slots * 30} mins)</p>
               </div>
             </div>
           </div>
 
           {/* Pricing detail */}
-          <div className="border-t border-[#1E3A2B] pt-4 space-y-2.5">
+          <div className="border-t border-border pt-4 space-y-2.5">
             <div className="flex justify-between text-xs">
-              <span className="text-[#A7C4B8]">Base Amount</span>
+              <span className="text-muted-foreground">Base Amount</span>
               <span className="font-mono text-foreground">₹{booking.base_price}</span>
             </div>
             {booking.discount_amount > 0 && (
@@ -244,7 +245,7 @@ export default function BookingDetailPage({ params }: Props) {
               </div>
             )}
             <div className="flex justify-between items-baseline pt-2 border-t border-white/5">
-              <span className="text-xs font-bold text-[#A7C4B8]">Total Amount Paid</span>
+              <span className="text-xs font-bold text-muted-foreground">Total Amount Paid</span>
               <span className="text-lg font-black text-primary font-mono">₹{booking.final_price}</span>
             </div>
           </div>
@@ -264,7 +265,7 @@ export default function BookingDetailPage({ params }: Props) {
             {isConfirmed && (
               <button
                 onClick={() => { setError(null); setShowRefundModal(true); }}
-                className="w-full py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-[#A7C4B8] font-bold text-xs transition-colors"
+                className="w-full py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-muted-foreground font-bold text-xs transition-colors"
               >
                 Cancel Booking & Request Refund
               </button>
@@ -274,29 +275,29 @@ export default function BookingDetailPage({ params }: Props) {
 
         {/* Review Section */}
         {existingReview ? (
-          <div className="mt-6 p-6 rounded-2xl bg-[#111A16] border border-[#1E3A2B] space-y-4">
-            <h3 className="text-xs font-bold text-[#A7C4B8] uppercase tracking-wider">Your Review</h3>
+          <div className="mt-6 p-6 rounded-2xl bg-card border border-border space-y-4">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Your Review</h3>
             <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3 text-[#A7C4B8]">
-                <div className="flex justify-between items-center bg-[#1A2620] p-2.5 rounded-lg border border-[#1E3A2B]/40 font-bold">
+              <div className="grid grid-cols-2 gap-3 text-muted-foreground">
+                <div className="flex justify-between items-center bg-input p-2.5 rounded-lg border border-border/40 font-bold">
                   <span>Turf Quality:</span>
                   <span className="text-yellow-400 font-mono">{existingReview.turf_quality} ★</span>
                 </div>
-                <div className="flex justify-between items-center bg-[#1A2620] p-2.5 rounded-lg border border-[#1E3A2B]/40 font-bold">
+                <div className="flex justify-between items-center bg-input p-2.5 rounded-lg border border-border/40 font-bold">
                   <span>Lighting:</span>
                   <span className="text-yellow-400 font-mono">{existingReview.lighting} ★</span>
                 </div>
-                <div className="flex justify-between items-center bg-[#1A2620] p-2.5 rounded-lg border border-[#1E3A2B]/40 font-bold">
+                <div className="flex justify-between items-center bg-input p-2.5 rounded-lg border border-border/40 font-bold">
                   <span>Cleanliness:</span>
                   <span className="text-yellow-400 font-mono">{existingReview.cleanliness} ★</span>
                 </div>
-                <div className="flex justify-between items-center bg-[#1A2620] p-2.5 rounded-lg border border-[#1E3A2B]/40 font-bold">
+                <div className="flex justify-between items-center bg-input p-2.5 rounded-lg border border-border/40 font-bold">
                   <span>Staff:</span>
                   <span className="text-yellow-400 font-mono">{existingReview.staff} ★</span>
                 </div>
               </div>
               {existingReview.comment && (
-                <div className="p-3 bg-[#1A2620]/60 border border-[#1E3A2B]/35 rounded-lg text-foreground italic leading-relaxed">
+                <div className="p-3 bg-input/60 border border-border/35 rounded-lg text-foreground italic leading-relaxed">
                   &ldquo;{existingReview.comment}&rdquo;
                 </div>
               )}
@@ -304,8 +305,8 @@ export default function BookingDetailPage({ params }: Props) {
           </div>
         ) : (
           (booking.status === 'confirmed' || booking.status === 'completed') && (
-            <div className="mt-6 p-6 rounded-2xl bg-[#111A16] border border-[#1E3A2B] space-y-4">
-              <h3 className="text-xs font-bold text-[#A7C4B8] uppercase tracking-wider">Submit a Review</h3>
+            <div className="mt-6 p-6 rounded-2xl bg-card border border-border space-y-4">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Submit a Review</h3>
               {reviewSuccess ? (
                 <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center text-emerald-400 text-xs font-bold">
                   Thank you! Your review has been submitted.
@@ -327,7 +328,7 @@ export default function BookingDetailPage({ params }: Props) {
                       { label: 'Staff & Service', value: staff, setter: setStaff },
                     ].map((ratingField) => (
                       <div key={ratingField.label} className="flex justify-between items-center text-xs">
-                        <span className="text-[#A7C4B8] font-bold">{ratingField.label}</span>
+                        <span className="text-muted-foreground font-bold">{ratingField.label}</span>
                         <div className="flex gap-1.5">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <button
@@ -353,7 +354,7 @@ export default function BookingDetailPage({ params }: Props) {
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
                       rows={3}
-                      className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-xs"
+                      className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-xs"
                     />
                   </div>
 
@@ -373,13 +374,13 @@ export default function BookingDetailPage({ params }: Props) {
         {/* Refund Submission Form Modal */}
         {showRefundModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-sm p-6 rounded-2xl bg-[#111A16] border border-[#1E3A2B] shadow-2xl space-y-4">
+            <div className="w-full max-w-sm p-6 rounded-2xl bg-card border border-border shadow-2xl space-y-4">
               <div className="flex items-center gap-2 text-primary">
                 <BadgeInfo className="w-5 h-5" />
                 <h3 className="font-black text-sm uppercase">Cancel Booking</h3>
               </div>
               
-              <div className="text-xs text-[#A7C4B8] space-y-1.5 leading-relaxed bg-[#1A2620] p-3 rounded-lg border border-[#1E3A2B]">
+              <div className="text-xs text-muted-foreground space-y-1.5 leading-relaxed bg-input p-3 rounded-lg border border-border">
                 <p className="font-bold">Cancellation Refund Policy:</p>
                 <p>• &gt; 12 hours: 100% Refund</p>
                 <p>• 6 to 12 hours: 70% Refund</p>
@@ -402,7 +403,7 @@ export default function BookingDetailPage({ params }: Props) {
                     value={refundReason}
                     onChange={(e) => setRefundReason(e.target.value)}
                     rows={3}
-                    className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground focus:outline-none focus:border-primary text-xs"
+                    className="w-full p-3 rounded-lg bg-input border border-border text-foreground focus:outline-none focus:border-primary text-xs"
                   />
                 </div>
 
@@ -410,7 +411,7 @@ export default function BookingDetailPage({ params }: Props) {
                   <button
                     type="button"
                     onClick={() => setShowRefundModal(false)}
-                    className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-xs font-bold text-[#A7C4B8]"
+                    className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-xs font-bold text-muted-foreground"
                   >
                     Close
                   </button>

@@ -24,6 +24,7 @@ export default function Login() {
 
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [isPasswordMode, setIsPasswordMode] = useState(true);
+  const [isForgotMode, setIsForgotMode] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
@@ -58,7 +59,19 @@ export default function Login() {
     setStatusMessage('');
 
     try {
-      if (isRegisterMode) {
+      if (isForgotMode) {
+        // Password reset request (SRD) — rate limited server-side.
+        const res = await fetch('/api/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Reset request failed.');
+        setSent(true);
+        setStatusMessage(data.message || 'If an account exists, a reset link has been sent.');
+
+      } else if (isRegisterMode) {
         // Sign Up
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
@@ -83,11 +96,18 @@ export default function Login() {
         setTimeout(() => router.replace('/'), 1000);
 
       } else if (isPasswordMode) {
-        // Password Login
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInError) throw signInError;
+        // Password Login — routed through our server endpoint so it is
+        // rate-limited (SRD) by IP before hitting Supabase Auth.
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Authentication failed.');
+        }
         // onAuthStateChange in use-auth.ts will update the store automatically
-        // router.replace will navigate without a full reload
         router.replace('/');
 
       } else {
@@ -108,20 +128,24 @@ export default function Login() {
   };
 
   return (
-    <main className="flex-1 flex flex-col justify-center items-center p-4 bg-[#0A0F0D] min-h-screen">
+    <main className="flex-1 flex flex-col justify-center items-center p-4 bg-background min-h-screen">
       <div className="w-full max-w-md p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl">
 
         {/* Brand */}
         <div className="flex flex-col items-center mb-6">
           <h1 className="text-3xl font-extrabold tracking-wider text-primary">SHIVAY</h1>
-          <p className="text-xs tracking-widest text-[#6B8F7E] uppercase mt-1">The Cricketing Hub</p>
+          <p className="text-xs tracking-widest text-muted-foreground uppercase mt-1">The Cricketing Hub</p>
         </div>
 
         <h2 className="text-xl font-bold text-center mb-1">
-          {isRegisterMode ? 'Create Account' : 'Welcome Back'}
+          {isForgotMode ? 'Reset Password' : isRegisterMode ? 'Create Account' : 'Welcome Back'}
         </h2>
         <p className="text-muted-foreground text-center text-sm mb-6">
-          {isRegisterMode ? 'Join Shivay to book courts and join tournaments' : 'Sign in to access your account'}
+          {isForgotMode
+            ? 'Enter your email to receive a reset link'
+            : isRegisterMode
+              ? 'Join Shivay to book courts and join tournaments'
+              : 'Sign in to access your account'}
         </p>
 
         {/* Error / Status */}
@@ -148,14 +172,14 @@ export default function Login() {
         </button>
 
         <div className="flex items-center my-4">
-          <hr className="flex-grow border-[#1E3A2B]" />
+          <hr className="flex-grow border-border" />
           <span className="px-3 text-xs text-muted-foreground uppercase tracking-widest">or</span>
-          <hr className="flex-grow border-[#1E3A2B]" />
+          <hr className="flex-grow border-border" />
         </div>
 
         {/* Password / OTP tabs (only in sign-in mode) */}
         {!isRegisterMode && (
-          <div className="flex border-b border-[#1E3A2B] mb-4">
+          <div className="flex border-b border-border mb-4">
             {[{ label: 'Password', val: true }, { label: 'Magic Link', val: false }].map(({ label, val }) => (
               <button key={label} type="button"
                 onClick={() => { setIsPasswordMode(val); setError(''); setStatusMessage(''); }}
@@ -173,7 +197,7 @@ export default function Login() {
               <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Full Name</label>
               <input type="text" required placeholder="John Doe" value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground text-sm focus:outline-none focus:border-primary" />
+                className="w-full p-3 rounded-lg bg-input border border-border text-foreground text-sm focus:outline-none focus:border-primary" />
             </div>
           )}
 
@@ -181,15 +205,26 @@ export default function Login() {
             <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Email Address</label>
             <input type="email" required placeholder="name@example.com" value={email}
               onChange={(e) => setEmail(e.target.value)} disabled={sent || loading}
-              className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground text-sm focus:outline-none focus:border-primary disabled:opacity-60" />
+              className="w-full p-3 rounded-lg bg-input border border-border text-foreground text-sm focus:outline-none focus:border-primary disabled:opacity-60" />
           </div>
 
-          {(isRegisterMode || isPasswordMode) && (
+          {(isRegisterMode || (isPasswordMode && !isForgotMode)) && (
             <div>
               <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Password</label>
               <input type="password" required placeholder="••••••••" value={password}
                 onChange={(e) => setPassword(e.target.value)} disabled={loading}
-                className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground text-sm focus:outline-none focus:border-primary disabled:opacity-60" />
+                className="w-full p-3 rounded-lg bg-input border border-border text-foreground text-sm focus:outline-none focus:border-primary disabled:opacity-60" />
+            </div>
+          )}
+
+          {/* Forgot password toggle (sign-in + password mode only) */}
+          {!isRegisterMode && isPasswordMode && !isForgotMode && (
+            <div className="text-right">
+              <button type="button"
+                onClick={() => { setIsForgotMode(true); setError(''); setStatusMessage(''); setSent(false); }}
+                className="text-xs text-muted-foreground hover:text-primary hover:underline">
+                Forgot password?
+              </button>
             </div>
           )}
 
@@ -199,13 +234,13 @@ export default function Login() {
                 <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Phone Number</label>
                 <input type="tel" required pattern="[0-9]{10}" placeholder="9876543210" value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground text-sm focus:outline-none focus:border-primary" />
+                  className="w-full p-3 rounded-lg bg-input border border-border text-foreground text-sm focus:outline-none focus:border-primary" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Birth Date</label>
                 <input type="date" required value={birthDate}
                   onChange={(e) => setBirthDate(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-[#1A2620] border border-[#1E3A2B] text-foreground text-sm focus:outline-none focus:border-primary" />
+                  className="w-full p-3 rounded-lg bg-input border border-border text-foreground text-sm focus:outline-none focus:border-primary" />
               </div>
             </>
           )}
@@ -219,11 +254,15 @@ export default function Login() {
               ? 'Please wait...'
               : isRegisterMode
                 ? 'Create Account'
-                : isPasswordMode
-                  ? 'Sign In'
-                  : sent
-                    ? 'Magic Link Sent ✓'
-                    : 'Send Magic Link'}
+                : isForgotMode
+                  ? sent
+                    ? 'Reset Link Sent ✓'
+                    : 'Send Reset Link'
+                  : isPasswordMode
+                    ? 'Sign In'
+                    : sent
+                      ? 'Magic Link Sent ✓'
+                      : 'Send Magic Link'}
           </button>
         </form>
 

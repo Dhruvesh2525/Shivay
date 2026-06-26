@@ -11,16 +11,16 @@ export const metadata: Metadata = {
 
 export default function RefundPolicyPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
-      <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-8 pb-24 text-sm leading-relaxed text-[#A7C4B8] space-y-6">
+      <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-8 pb-24 text-sm leading-relaxed text-muted-foreground space-y-6">
         <h1 id="refund-policy-title" className="text-3xl font-black text-primary uppercase tracking-wide">
           Refund & Cancellation Policy
         </h1>
         <p className="text-xs text-muted-foreground">Last updated: June 22, 2026</p>
 
-        <section className="space-y-3 bg-[#111A16] p-5 rounded-2xl border border-[#1E3A2B]">
+        <section className="space-y-3 bg-card p-5 rounded-2xl border border-border">
           <h2 className="text-base font-bold text-primary uppercase tracking-wider">Cancellation Timeframes & Tiers</h2>
           <p className="text-xs text-muted-foreground mb-4">Refund calculations are based on the gap between the cancellation request time and the booking start time:</p>
           <ul className="space-y-2 text-xs">

@@ -89,7 +89,7 @@ export default function AdminRefundsQueue() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-primary">Refund Queue</h1>
-        <p className="text-[#A7C4B8] text-sm mt-1">Review pending customer cancellation refund claims.</p>
+        <p className="text-muted-foreground text-sm mt-1">Review pending customer cancellation refund claims.</p>
       </div>
 
       {error && (
@@ -100,7 +100,7 @@ export default function AdminRefundsQueue() {
       )}
 
       {loading ? (
-        <div className="p-8 text-center text-[#A7C4B8]">Loading refund queue details...</div>
+        <div className="p-8 text-center text-muted-foreground">Loading refund queue details...</div>
       ) : requests.length === 0 ? (
         <div className="p-12 text-center bg-white/5 rounded-2xl border border-white/10 text-muted-foreground text-xs">
           No pending refund claims in the queue.
@@ -110,7 +110,7 @@ export default function AdminRefundsQueue() {
           {requests.map((req) => (
             <div 
               key={req.id} 
-              className="p-5 rounded-2xl bg-[#111A16] border border-[#1E3A2B] flex flex-col md:flex-row md:items-center justify-between gap-6"
+              className="p-5 rounded-2xl bg-card border border-border flex flex-col md:flex-row md:items-center justify-between gap-6"
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ export default function AdminRefundsQueue() {
                 <h3 className="font-bold text-base text-foreground">
                   User: {req.profiles?.full_name || 'Anonymous Player'}
                 </h3>
-                <p className="text-xs text-[#A7C4B8] leading-relaxed max-w-lg italic">
+                <p className="text-xs text-muted-foreground leading-relaxed max-w-lg italic">
                   &ldquo;{req.reason}&rdquo;
                 </p>
                 <span className="text-[10px] text-muted-foreground font-mono block">

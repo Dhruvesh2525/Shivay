@@ -26,7 +26,7 @@ export default function TournamentsList({ tournaments }: { tournaments: Tourname
       <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-black text-primary uppercase">Tournaments</h1>
-          <p className="text-[#A7C4B8] text-xs">Join local leagues, team brackets, and player matches at Shivay.</p>
+          <p className="text-muted-foreground text-xs">Join local leagues, team brackets, and player matches at Shivay.</p>
         </div>
         {/* Only organizers and admins see this button */}
         {isOrganizer && (
@@ -49,7 +49,7 @@ export default function TournamentsList({ tournaments }: { tournaments: Tourname
             <div
               key={tourney.id}
               onClick={() => router.push(`/tournaments/${tourney.id}`)}
-              className="p-5 rounded-2xl bg-[#111A16] border border-[#1E3A2B] hover:border-primary/50 transition-all cursor-pointer flex flex-col justify-between"
+              className="p-5 rounded-2xl bg-card border border-border hover:border-primary/50 transition-all cursor-pointer flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -61,7 +61,7 @@ export default function TournamentsList({ tournaments }: { tournaments: Tourname
                   </span>
                 </div>
                 <h3 className="text-lg font-black tracking-wide text-foreground truncate">{tourney.name}</h3>
-                <p className="text-xs text-[#A7C4B8] mt-1 line-clamp-2 leading-relaxed">{tourney.description}</p>
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{tourney.description}</p>
               </div>
 
               <div className="mt-4 pt-3 border-t border-white/5 flex justify-between items-center text-xs text-muted-foreground">

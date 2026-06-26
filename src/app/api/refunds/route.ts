@@ -1,19 +1,22 @@
 // src/app/api/refunds/route.ts
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { enforceRateLimit } from '@/lib/rate-limit';
+import { resolveAuth } from '@/lib/auth-helpers';
 
 function calculateRefundTier(bookingDateStr: string, startTimeStr: string): { tier: string; percentage: number } {
-  const bookingTime = new Date(`${bookingDateStr}T${startTimeStr}`);
+  // Use the facility timezone (Asia/Kolkata) explicitly; DATE/TIME columns
+  // have no offset, so naive new Date() would otherwise use the server's TZ.
+  const bookingTime = new Date(`${bookingDateStr}T${startTimeStr}+05:30`);
   const now = new Date();
-  
+
   const diffMs = bookingTime.getTime() - now.getTime();
   const diffHours = diffMs / (1000 * 60 * 60);
 
   if (diffHours > 12) {
     return { tier: '100%', percentage: 1.00 };
   } else if (diffHours >= 6) {
-    return { tier: '77%', percentage: 0.70 }; // Typo resolution: 70% as requested
+    return { tier: '70%', percentage: 0.70 };
   } else if (diffHours >= 3) {
     return { tier: '50%', percentage: 0.50 };
   } else {
@@ -29,14 +32,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required parameters.' }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const authCtx = await resolveAuth();
+    if (authCtx instanceof NextResponse) return authCtx;
+    const { user, supabase } = authCtx;
     const adminSupabase = createAdminClient();
 
-    // Fetch user context
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-    }
+    // Rate limit refund requests (SRD)
+    const limited = enforceRateLimit(request, {
+      key: user.id,
+      action: 'refund_request',
+      limit: 5,
+      windowMs: 60 * 60 * 1000, // 5 refund requests per hour
+    });
+    if (limited) return limited;
 
     // Fetch booking details
     const { data: booking, error: bookingError } = await supabase

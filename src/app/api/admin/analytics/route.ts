@@ -103,7 +103,11 @@ export async function GET(request: Request) {
       });
     }
 
-    // 1. Calculate Revenue Statistics (Confirmed & Completed bookings)
+    // 1. Calculate Revenue Statistics (Confirmed & Completed bookings).
+    // NOTE: Managers are NOT permitted to see revenue (SRD). We still load the
+    // rows for counts/utilization but strip price fields before responding.
+    const isManager = adminProfile.role === 'manager';
+
     let bookingsQuery = adminSupabase
       .from('bookings')
       .select(`
@@ -234,10 +238,10 @@ export async function GET(request: Request) {
       .select('id', { count: 'exact', head: true })
       .eq('role', 'customer');
 
-    // 4. Detail Bookings View List
+    // 4. Detail Bookings View List (price redacted for managers per SRD)
     const detailBookings = filteredBookings.map((b: any) => ({
       id: b.id,
-      finalPrice: Number(b.final_price),
+      finalPrice: isManager ? null : Number(b.final_price),
       bookingDate: b.booking_date,
       totalSlots: b.total_slots,
       status: b.status,
@@ -248,12 +252,13 @@ export async function GET(request: Request) {
     }));
 
     return NextResponse.json({
-      totalRevenue,
+      totalRevenue: isManager ? null : totalRevenue,
+      revenueChart: isManager ? null : sortedRevenue,
       usersCount: usersCount || 0,
       bookingsCount: filteredBookings.length,
-      revenueChart: sortedRevenue,
       utilization,
-      detailBookings
+      detailBookings,
+      revenueAccess: !isManager
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Failed to fetch analytics.' }, { status: 500 });

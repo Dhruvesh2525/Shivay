@@ -36,7 +36,7 @@ export default async function BookPage() {
   const courts = await getCourts();
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <BookCourtsList courts={courts} />
       <Footer />

@@ -57,36 +57,30 @@ export function useAuth() {
         }
 
         // Single session enforcement
-        const localActiveSessionId = currentProfile?.active_session_id;
+        const getSessionId = (token: string): string | null => {
+          try {
+            const parts = token.split('.');
+            if (parts.length !== 3) return null;
+            const payload = JSON.parse(atob(parts[1]));
+            return payload.session_id || null;
+          } catch {
+            return null;
+          }
+        };
+
+        const currentSessionId = getSessionId(session.access_token) || session.access_token;
+        const dbActiveSessionId = prof?.active_session_id;
 
         if (event === 'SIGNED_IN') {
-          // New login: update active_session_id in DB if it's different
-          if (prof && prof.active_session_id !== session.access_token) {
+          if (prof && dbActiveSessionId !== currentSessionId) {
             await supabase
               .from('profiles')
-              .update({ active_session_id: session.access_token })
+              .update({ active_session_id: currentSessionId })
               .eq('id', session.user.id);
-            prof.active_session_id = session.access_token;
+            prof.active_session_id = currentSessionId;
           }
-        } else if (event === 'TOKEN_REFRESHED') {
-          // Token rotated: update DB only if we were the active session
-          if (prof?.active_session_id && localActiveSessionId && prof.active_session_id === localActiveSessionId) {
-            await supabase
-              .from('profiles')
-              .update({ active_session_id: session.access_token })
-              .eq('id', session.user.id);
-            prof.active_session_id = session.access_token;
-          } else {
-            // Mismatch: another device logged in or session terminated
-            await supabase.auth.signOut();
-            clearAuth();
-            subscriptionActive = false;
-            window.location.href = '/login?error=session_terminated';
-            return;
-          }
-        } else {
-          // For other events (e.g. INITIAL_SESSION, USER_UPDATED), check if there is a mismatch
-          if (prof?.active_session_id && session.access_token && prof.active_session_id !== session.access_token) {
+        } else if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') {
+          if (dbActiveSessionId && dbActiveSessionId !== currentSessionId) {
             await supabase.auth.signOut();
             clearAuth();
             subscriptionActive = false;

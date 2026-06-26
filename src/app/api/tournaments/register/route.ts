@@ -1,7 +1,8 @@
 // src/app/api/tournaments/register/route.ts
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { enforceRateLimit, getClientIp } from '@/lib/rate-limit';
+import { resolveAuth } from '@/lib/auth-helpers';
 
 export async function POST(request: Request) {
   try {
@@ -11,12 +12,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing registration parameters.' }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const authCtx = await resolveAuth();
+    if (authCtx instanceof NextResponse) return authCtx;
+    const { user, supabase } = authCtx;
     const adminSupabase = createAdminClient();
 
-    // Verify authorized user context
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    // Rate limit tournament registration (SRD)
+    const limited = enforceRateLimit(request, {
+      key: user.id,
+      action: 'tournament_register',
+      limit: 5,
+      windowMs: 60 * 60 * 1000, // 5 registrations per hour
+    });
+    if (limited) return limited;
 
     // Verify tournament details
     const { data: tourney } = await supabase
